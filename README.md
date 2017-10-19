@@ -31,6 +31,8 @@ References:
 
 - [Bag of Tricks for Efficient Text Classification](https://arxiv.org/pdf/1607.01759.pdf)
 
+---
+
 ### TextCNN
 
 ![]()
@@ -40,6 +42,8 @@ References:
 - [Convolutional Neural Networks for Sentence Classification](http://arxiv.org/abs/1408.5882)
 - [A Sensitivity Analysis of (and Practitioners' Guide to) Convolutional Neural Networks for Sentence Classification](http://arxiv.org/abs/1510.03820)
 
+---
+
 ### TextRNN
 
 ![]()
@@ -47,6 +51,8 @@ References:
 References:
 
 - [Recurrent Neural Network for Text Classification with Multi-Task Learning](http://www.aaai.org/ocs/index.php/AAAI/AAAI15/paper/download/9745/9552)
+
+---
 
 ### TextRCNN
 
@@ -56,6 +62,8 @@ References:
 
 - [Recurrent Convolutional Neural Networks for Text Classification](http://www.aaai.org/ocs/index.php/AAAI/AAAI15/paper/download/9745/9552)
 
+---
+
 ### TextHAN
 
 ![]()
@@ -63,6 +71,8 @@ References:
 References:
 
 - [Hierarchical Attention Networks for Document Classification](https://www.cs.cmu.edu/~diyiy/docs/naacl16.pdf)
+
+---
 
 ## Innovation
 
