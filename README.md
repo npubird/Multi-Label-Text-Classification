@@ -17,6 +17,15 @@ Research data may attract copyright protection under China law. Thus, there is o
 
 实验数据属于实验室与某公司的合作项目，涉及商业机密，在此不予提供，还望谅解。
 
+## Innovation
+
+1. Make the data support **Chinese** and English.(Which use `gensim` seems easy)
+2. Can use **your own pre-trained word vectors**.
+3. Add a new **Highway Layer**.
+4. Add **parent label bind** to limit the output of the prediction label.
+5. Can choose **train** the model directly or **restore** the model from checkpoint.  
+6. Add **model test code**. 
+
 ## Pre-trained Word Vectors
 
 Use `gensim` package to pre-train my data.
@@ -73,15 +82,6 @@ References:
 - [Hierarchical Attention Networks for Document Classification](https://www.cs.cmu.edu/~diyiy/docs/naacl16.pdf)
 
 ---
-
-## Innovation
-
-1. Make the data support **Chinese** and English.(Which use `gensim` seems easy)
-2. Can use **your own pre-trained word vectors**.
-3. Add a new **Highway Layer**.
-4. Add **parent label bind** to limit the output of the prediction label.
-5. Can choose **train** the model directly or **restore** the model from checkpoint.  
-6. Add **model test code**. 
 
 ## About Me
 
