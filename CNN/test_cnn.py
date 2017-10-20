@@ -41,16 +41,16 @@ tf.flags.DEFINE_string("use_classbind_or_not", CLASS_BIND, "Use the class bind i
 tf.flags.DEFINE_integer("pad_seq_len", 150, "Recommand padding Sequence length of data (depends on the data)")
 tf.flags.DEFINE_integer("embedding_dim", 100, "Dimensionality of character embedding (default: 128)")
 tf.flags.DEFINE_integer("embedding_type", 1, "The embedding type (default: 1)")
-tf.flags.DEFINE_string("filter_sizes", "3,4,5", "Comma-separated filter sizes (default: '3,4,5')")
+tf.flags.DEFINE_string("filter_sizes", "2,3,4,5,6,7", "Comma-separated filter sizes (default: '3,4,5')")
 tf.flags.DEFINE_integer("hidden_size", 1024, "Hidden size (default: 1024)")
-tf.flags.DEFINE_integer("num_filters", 128, "Number of filters per filter size (default: 128)")
+tf.flags.DEFINE_integer("num_filters", 256, "Number of filters per filter size (default: 128)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 0.0)")
 tf.flags.DEFINE_integer("num_classes", 367, "Number of labels (depends on the task)")
 tf.flags.DEFINE_integer("top_num", 2, "Number of top K prediction classess (default: 3)")
 
 # Test parameters
-tf.flags.DEFINE_integer("batch_size", 64, "Batch Size (default: 64)")
+tf.flags.DEFINE_integer("batch_size", 512, "Batch Size (default: 64)")
 
 # Misc Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
@@ -106,7 +106,7 @@ def test_cnn():
             dropout_keep_prob = graph.get_operation_by_name("dropout_keep_prob").outputs[0]
 
             # pre-trained_word2vec
-            pretrained_embedding = graph.get_operation_by_name("embedding/W").outputs[0]
+            pretrained_embedding = graph.get_operation_by_name("embedding/embedding").outputs[0]
 
             # Tensors we want to evaluate
             logits = graph.get_operation_by_name("output/logits").outputs[0]
