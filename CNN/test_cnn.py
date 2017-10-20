@@ -24,9 +24,9 @@ logger.info('✔︎ The format of your input is legal, now loading to next step.
 
 CLASS_BIND = CLASS_BIND.upper()
 
-TRAININGSET_DIR = 'Train.json'
-VALIDATIONSET_DIR = 'Validation.json'
-TESTSET_DIR = 'Test.json'
+TRAININGSET_DIR = '../Train.json'
+VALIDATIONSET_DIR = '../Validation_bind.json'
+TESTSET_DIR = '../Test.json'
 MODEL_DIR = 'runs/' + MODEL + '/checkpoints/'
 SAVE_FILE = 'predictions.txt'
 

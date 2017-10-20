@@ -103,7 +103,7 @@ class TextCNN(object):
                     name="conv")
 
                 # Batch Normalization Layer
-                conv_bn = batch_norm(tf.nn.bias_add(conv, b), is_training=self.is_training, scope="bn")
+                conv_bn = batch_norm(tf.nn.bias_add(conv, b), is_training=self.is_training)
 
                 # Apply nonlinearity
                 conv_out = tf.nn.relu(conv_bn, name="relu")
@@ -130,7 +130,7 @@ class TextCNN(object):
             self.fc = tf.nn.xw_plus_b(self.h_pool_flat, W, b)
 
             # Batch Normalization Layer
-            self.fc_bn = batch_norm(self.fc, is_training=self.is_training, scope="bn")
+            self.fc_bn = batch_norm(self.fc, is_training=self.is_training)
 
             # Apply nonlinearity
             self.fc_out = tf.nn.relu(self.fc_bn, name="relu")

@@ -31,8 +31,8 @@ if TRAIN_OR_RESTORE == 'T':
 if TRAIN_OR_RESTORE == 'R':
     logger = data_helpers.logger_fn('tflog', 'restore-{}.log'.format(time.asctime()))
 
-TRAININGSET_DIR = 'Train.json'
-VALIDATIONSET_DIR = 'Validation_bind.json'
+TRAININGSET_DIR = '../Train.json'
+VALIDATIONSET_DIR = '../Validation_bind.json'
 
 # Data loading params
 tf.flags.DEFINE_string("training_data_file", TRAININGSET_DIR, "Data source for the training data.")
@@ -56,6 +56,8 @@ tf.flags.DEFINE_integer("top_num", 2, "Number of top K prediction classess (defa
 tf.flags.DEFINE_integer("batch_size", 256, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer("num_epochs", 50, "Number of training epochs (default: 200)")
 tf.flags.DEFINE_integer("evaluate_every", 5000, "Evaluate model on dev set after this many steps (default: 100)")
+tf.flags.DEFINE_integer("decay_steps", 5000, "How many steps before decay learning rate.")
+tf.flags.DEFINE_float("decay_rate", 0.65, "Rate of decay for learning rate.")
 tf.flags.DEFINE_integer("checkpoint_every", 1000, "Save model after this many steps (default: 100)")
 tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
 
