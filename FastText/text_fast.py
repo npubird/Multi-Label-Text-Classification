@@ -20,7 +20,7 @@ class TextFAST(object):
         self.dropout_keep_prob = tf.placeholder(tf.float32, name="dropout_keep_prob")
         self.is_training = tf.placeholder(tf.bool)
 
-        self.global_step = tf.Variable(0, trainable=False, name="global_Step")
+        self.global_step = tf.Variable(0, trainable=False, name="Global_Step")
 
         # Keeping track of l2 regularization loss (optional)
         l2_loss = tf.constant(0.0)
