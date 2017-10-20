@@ -88,7 +88,7 @@ class TextCNN(object):
 
         for i, filter_size in enumerate(filter_sizes):
             with tf.name_scope("conv-filter{}".format(filter_size)):
-                # Convolution Layer 1
+                # Convolution Layer
                 filter_shape = [filter_size, embedding_size, 1, num_filters]
                 W = tf.Variable(tf.truncated_normal(shape=filter_shape, stddev=0.1), name="W")
                 b = tf.Variable(tf.constant(0.1, shape=[num_filters]), dtype=tf.float32, name="b")
@@ -118,14 +118,14 @@ class TextCNN(object):
 
         # Combine all the pooled features
         num_filters_total = num_filters * len(filter_sizes)
-        self.h_pool = tf.concat(pooled_outputs, 3)
-        self.h_pool_flat = tf.reshape(self.h_pool, [-1, num_filters_total])
+        self.pool = tf.concat(pooled_outputs, 3)
+        self.pool_flat = tf.reshape(self.pool, [-1, num_filters_total])
 
         # Fully Connected Layer
         with tf.name_scope("fc"):
             W = tf.Variable(tf.truncated_normal(shape=[num_filters_total, fc_hidden_size], stddev=0.1), name="W")
             b = tf.Variable(tf.constant(0.1, shape=[fc_hidden_size]), dtype=tf.float32, name="b")
-            self.fc = tf.nn.xw_plus_b(self.h_pool_flat, W, b)
+            self.fc = tf.nn.xw_plus_b(self.pool_flat, W, b)
 
             # Batch Normalization Layer
             self.fc_bn = batch_norm(self.fc, is_training=self.is_training)
