@@ -41,6 +41,7 @@ tf.flags.DEFINE_string("train_or_restore", TRAIN_OR_RESTORE, "Train or Restore."
 tf.flags.DEFINE_string("use_classbind_or_not", CLASS_BIND, "Use the class bind info or not.")
 
 # Model Hyperparameterss
+tf.flags.DEFINE_float("learning_rate", 0.001, "The learning rate (default: 0.001)")
 tf.flags.DEFINE_integer("pad_seq_len", 150, "Recommand padding Sequence length of data (depends on the data)")
 tf.flags.DEFINE_integer("embedding_dim", 100, "Dimensionality of character embedding (default: 128)")
 tf.flags.DEFINE_integer("embedding_type", 1, "The embedding type (default: 1)")
@@ -54,10 +55,10 @@ tf.flags.DEFINE_integer("top_num", 2, "Number of top K prediction classess (defa
 
 # Training parameters
 tf.flags.DEFINE_integer("batch_size", 256, "Batch Size (default: 64)")
-tf.flags.DEFINE_integer("num_epochs", 50, "Number of training epochs (default: 200)")
+tf.flags.DEFINE_integer("num_epochs", 100, "Number of training epochs (default: 200)")
 tf.flags.DEFINE_integer("evaluate_every", 5000, "Evaluate model on dev set after this many steps (default: 100)")
-tf.flags.DEFINE_integer("decay_steps", 5000, "How many steps before decay learning rate.")
-tf.flags.DEFINE_float("decay_rate", 0.65, "Rate of decay for learning rate.")
+tf.flags.DEFINE_integer("decay_steps", 5000, "how many steps before decay learning rate.")
+tf.flags.DEFINE_float("decay_rate", 0.5, "Rate of decay for learning rate.")
 tf.flags.DEFINE_integer("checkpoint_every", 1000, "Save model after this many steps (default: 100)")
 tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
 
@@ -121,7 +122,10 @@ def train_cnn():
                 pretrained_embedding=pretrained_word2vec_matrix)
 
             # Define Training procedure
-            optimizer = tf.train.AdamOptimizer(1e-3)
+            # learning_rate = tf.train.exponential_decay(learning_rate=FLAGS.learning_rate, global_step=cnn.global_step,
+            #                                            decay_steps=FLAGS.decay_steps, decay_rate=FLAGS.decay_rate,
+            #                                            staircase=True)
+            optimizer = tf.train.AdamOptimizer(FLAGS.learning_rate)
             grads_and_vars = optimizer.compute_gradients(cnn.loss)
             train_op = optimizer.apply_gradients(grads_and_vars, global_step=cnn.global_step, name="train_op")
 
