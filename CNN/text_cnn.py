@@ -52,7 +52,7 @@ class TextCNN(object):
     """A CNN for text classification."""
 
     def __init__(
-            self, sequence_length, num_classes, vocab_size, hidden_size, embedding_size,
+            self, sequence_length, num_classes, vocab_size, fc_hidden_size, embedding_size,
             embedding_type, filter_sizes, num_filters, l2_reg_lambda=0.0, pretrained_embedding=None):
 
         # Placeholders for input, output and dropout
@@ -123,8 +123,8 @@ class TextCNN(object):
 
         # Fully Connected Layer
         with tf.name_scope("fc"):
-            W = tf.Variable(tf.truncated_normal(shape=[num_filters_total, hidden_size], stddev=0.1), name="W")
-            b = tf.Variable(tf.constant(0.1, shape=[hidden_size]), dtype=tf.float32, name="b")
+            W = tf.Variable(tf.truncated_normal(shape=[num_filters_total, fc_hidden_size], stddev=0.1), name="W")
+            b = tf.Variable(tf.constant(0.1, shape=[fc_hidden_size]), dtype=tf.float32, name="b")
             self.fc = tf.nn.xw_plus_b(self.h_pool_flat, W, b)
 
             # Batch Normalization Layer
@@ -143,7 +143,7 @@ class TextCNN(object):
 
         # Final scores and predictions
         with tf.name_scope("output"):
-            W = tf.Variable(tf.truncated_normal(shape=[hidden_size, num_classes], stddev=0.1), name="W")
+            W = tf.Variable(tf.truncated_normal(shape=[fc_hidden_size, num_classes], stddev=0.1), name="W")
             b = tf.Variable(tf.constant(0.1, shape=[num_classes]), dtype=tf.float32, name="b")
             l2_loss += tf.nn.l2_loss(W)
             l2_loss += tf.nn.l2_loss(b)

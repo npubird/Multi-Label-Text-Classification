@@ -46,7 +46,7 @@ tf.flags.DEFINE_integer("pad_seq_len", 150, "Recommand padding Sequence length o
 tf.flags.DEFINE_integer("embedding_dim", 100, "Dimensionality of character embedding (default: 128)")
 tf.flags.DEFINE_integer("embedding_type", 1, "The embedding type (default: 1)")
 tf.flags.DEFINE_string("filter_sizes", "2,3,4,5,6", "Comma-separated filter sizes (default: '3,4,5')")
-tf.flags.DEFINE_integer("hidden_size", 1024, "Hidden size (default: 1024)")
+tf.flags.DEFINE_integer("fc_hidden_size", 1024, "Hidden size for fully connected layer (default: 1024)")
 tf.flags.DEFINE_integer("num_filters", 256, "Number of filters per filter size (default: 128)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 0.0)")
@@ -113,7 +113,7 @@ def train_cnn():
                 sequence_length=FLAGS.pad_seq_len,
                 num_classes=FLAGS.num_classes,
                 vocab_size=VOCAB_SIZE,
-                hidden_size=FLAGS.hidden_size,
+                fc_hidden_size=FLAGS.fc_hidden_size,
                 embedding_size=FLAGS.embedding_dim,
                 embedding_type=FLAGS.embedding_type,
                 filter_sizes=list(map(int, FLAGS.filter_sizes.split(","))),
