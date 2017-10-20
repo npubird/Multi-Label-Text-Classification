@@ -288,6 +288,12 @@ def pad_data(data, pad_seq_len):
 
 
 def plot_seq_len(data_file, data, percentage=0.98):
+    """
+    Visualizing the sentence length of each data sentence.
+    :param data_file: The data_file
+    :param data: The class Data (includes the data tokenindex and data labels)
+    :param percentage: The percentage of the total data you want to show
+    """
     output_file = data_file.split('.')[0] + ' Sequence Length Distribution Histogram.png'
     result = dict()
     for x in data.tokenindex:
