@@ -83,8 +83,8 @@ class TextCNN(object):
                 if embedding_type == 1:
                     self.embedding = tf.Variable(pretrained_embedding, name="embedding", trainable=True)
                     self.embedding = tf.cast(self.embedding, tf.float32)
-            self.embedded_chars = tf.nn.embedding_lookup(self.embedding, self.input_x)
-            self.embedded_chars_expanded = tf.expand_dims(self.embedded_chars, -1)
+            self.embedded_sentence = tf.nn.embedding_lookup(self.embedding, self.input_x)
+            self.embedded_sentence_expanded = tf.expand_dims(self.embedded_sentence, -1)
 
         # Create a convolution + maxpool layer for each filter size
         pooled_outputs = []
@@ -96,7 +96,7 @@ class TextCNN(object):
                 W = tf.Variable(tf.truncated_normal(shape=filter_shape, stddev=0.1), name="W")
                 b = tf.Variable(tf.constant(0.1, shape=[num_filters]), dtype=tf.float32, name="b")
                 conv = tf.nn.conv2d(
-                    self.embedded_chars_expanded,
+                    self.embedded_sentence_expanded,
                     W,
                     strides=[1, 1, 1, 1],
                     padding="VALID",
@@ -107,7 +107,6 @@ class TextCNN(object):
 
                 # Apply nonlinearity
                 conv_out = tf.nn.relu(conv_bn, name="relu")
-
 
             with tf.name_scope("pool-filter{}".format(filter_size)):
                 # Maxpooling over the outputs
