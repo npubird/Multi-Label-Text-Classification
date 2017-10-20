@@ -45,7 +45,8 @@ tf.flags.DEFINE_float("learning_rate", 0.001, "The learning rate (default: 0.001
 tf.flags.DEFINE_integer("pad_seq_len", 150, "Recommand padding Sequence length of data (depends on the data)")
 tf.flags.DEFINE_integer("embedding_dim", 100, "Dimensionality of character embedding (default: 128)")
 tf.flags.DEFINE_integer("embedding_type", 1, "The embedding type (default: 1)")
-tf.flags.DEFINE_integer("hidden_size", 1024, "Hidden size (default: 1024)")
+tf.flags.DEFINE_integer("hidden_size", 256, "Hidden size for bi-lstm layer(default: 256)")
+tf.flags.DEFINE_integer("fc_hidden_size", 1024, "Hidden size for fully connected layer (default: 1024)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 0.0)")
 tf.flags.DEFINE_integer("num_classes", 367, "Number of labels (depends on the task)")
@@ -112,6 +113,7 @@ def train_rnn():
                 num_classes=FLAGS.num_classes,
                 vocab_size=VOCAB_SIZE,
                 hidden_size=FLAGS.hidden_size,
+                fc_hidden_size=FLAGS.fc_hidden_size,
                 embedding_size=FLAGS.embedding_dim,
                 embedding_type=FLAGS.embedding_type,
                 l2_reg_lambda=FLAGS.l2_reg_lambda,
