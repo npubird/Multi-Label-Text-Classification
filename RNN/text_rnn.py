@@ -8,6 +8,7 @@ from tensorflow import array_ops
 from tensorflow import sigmoid
 from tensorflow import tanh
 from tensorflow.contrib import rnn
+from tensorflow.contrib.layers import batch_norm
 
 
 class BatchNormLSTMCell(rnn.RNNCell):
@@ -135,10 +136,7 @@ def batch_norm(x, name_scope, is_training, epsilon=1e-3, decay=0.999):
 
 
 class TextRNN(object):
-    """
-    A RNN for text classification.
-    Uses an embedding layer, followed by a bi-lstm and softmax layer.
-    """
+    """A RNN for text classification."""
 
     def __init__(
             self, sequence_length, num_classes, vocab_size, hidden_size, embedding_size,

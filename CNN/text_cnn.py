@@ -49,10 +49,7 @@ def highway(input_, size, num_layers=1, bias=-2.0, act=tf.nn.relu, name=None):
 
 
 class TextCNN(object):
-    """
-    A CNN for text classification.
-    Uses an embedding layer, followed by a convolutional, max-pooling and softmax layer.
-    """
+    """A CNN for text classification."""
 
     def __init__(
             self, sequence_length, num_classes, vocab_size, hidden_size, embedding_size,

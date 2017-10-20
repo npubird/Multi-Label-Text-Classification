@@ -5,10 +5,7 @@ from tensorflow.contrib.layers import batch_norm
 
 
 class TextFAST(object):
-    """
-    A FASTTEXT for text classification.
-    Uses an embedding layer, followed by a softmax layer.
-    """
+    """A FASTTEXT for text classification."""
 
     def __init__(
             self, sequence_length, num_classes, vocab_size, hidden_size, embedding_size,

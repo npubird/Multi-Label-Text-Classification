@@ -31,8 +31,8 @@ if TRAIN_OR_RESTORE == 'T':
 if TRAIN_OR_RESTORE == 'R':
     logger = data_helpers.logger_fn('tflog', 'restore-{}.log'.format(time.asctime()))
 
-TRAININGSET_DIR = 'Train.json'
-VALIDATIONSET_DIR = 'Validation_bind.json'
+TRAININGSET_DIR = '../Train.json'
+VALIDATIONSET_DIR = '../Validation_bind.json'
 
 # Data loading params
 tf.flags.DEFINE_string("training_data_file", TRAININGSET_DIR, "Data source for the training data.")
@@ -41,20 +41,24 @@ tf.flags.DEFINE_string("train_or_restore", TRAIN_OR_RESTORE, "Train or Restore."
 tf.flags.DEFINE_string("use_classbind_or_not", CLASS_BIND, "Use the class bind info or not.")
 
 # Model Hyperparameterss
+tf.flags.DEFINE_float("learning_rate", 0.001, "The learning rate (default: 0.001)")
 tf.flags.DEFINE_integer("pad_seq_len", 150, "Recommand padding Sequence length of data (depends on the data)")
 tf.flags.DEFINE_integer("embedding_dim", 100, "Dimensionality of character embedding (default: 128)")
 tf.flags.DEFINE_integer("embedding_type", 1, "The embedding type (default: 1)")
+tf.flags.DEFINE_integer("hidden_size", 1024, "Hidden size (default: 1024)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 0.0)")
-
-# Training parameters
-tf.flags.DEFINE_integer("batch_size", 256, "Batch Size (default: 64)")
-tf.flags.DEFINE_integer("num_epochs", 50, "Number of training epochs (default: 200)")
-tf.flags.DEFINE_integer("evaluate_every", 5000, "Evaluate model on dev set after this many steps (default: 100)")
-tf.flags.DEFINE_integer("checkpoint_every", 1000, "Save model after this many steps (default: 100)")
-tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
 tf.flags.DEFINE_integer("num_classes", 367, "Number of labels (depends on the task)")
 tf.flags.DEFINE_integer("top_num", 2, "Number of top K prediction classess (default: 3)")
+
+# Training parameters
+tf.flags.DEFINE_integer("batch_size", 512, "Batch Size (default: 64)")
+tf.flags.DEFINE_integer("num_epochs", 200, "Number of training epochs (default: 200)")
+tf.flags.DEFINE_integer("evaluate_every", 5000, "Evaluate model on dev set after this many steps (default: 100)")
+tf.flags.DEFINE_integer("decay_steps", 5000, "how many steps before decay learning rate.")
+tf.flags.DEFINE_float("decay_rate", 0.5, "Rate of decay for learning rate.")
+tf.flags.DEFINE_integer("checkpoint_every", 1000, "Save model after this many steps (default: 100)")
+tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
 
 # Misc Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
@@ -107,16 +111,19 @@ def train_rnn():
                 sequence_length=FLAGS.pad_seq_len,
                 num_classes=FLAGS.num_classes,
                 vocab_size=VOCAB_SIZE,
-                hidden_size=FLAGS.embedding_dim,
+                hidden_size=FLAGS.hidden_size,
                 embedding_size=FLAGS.embedding_dim,
                 embedding_type=FLAGS.embedding_type,
                 l2_reg_lambda=FLAGS.l2_reg_lambda,
                 pretrained_embedding=pretrained_word2vec_matrix)
 
             # Define Training procedure
-            optimizer = tf.train.AdamOptimizer(1e-3)
+            # learning_rate = tf.train.exponential_decay(learning_rate=FLAGS.learning_rate, global_step=cnn.global_step,
+            #                                            decay_steps=FLAGS.decay_steps, decay_rate=FLAGS.decay_rate,
+            #                                            staircase=True)
+            optimizer = tf.train.AdamOptimizer(FLAGS.learning_rate)
             grads_and_vars = optimizer.compute_gradients(rnn.loss)
-            train_op = optimizer.apply_gradients(grads_and_vars, global_step=rnn.global_step, name="train_op")
+            train_op = optimizer.apply_gradients(grads_and_vars, global_step=cnn.global_step, name="train_op")
 
             # Keep track of gradient values and sparsity (optional)
             grad_summaries = []
@@ -185,7 +192,8 @@ def train_rnn():
                 feed_dict = {
                     rnn.input_x: x_batch,
                     rnn.input_y: y_batch,
-                    rnn.dropout_keep_prob: FLAGS.dropout_keep_prob
+                    rnn.dropout_keep_prob: FLAGS.dropout_keep_prob,
+                    rnn.is_training: True
                 }
                 _, step, summaries, loss = sess.run(
                     [train_op, rnn.global_step, train_summary_op, rnn.loss], feed_dict)
@@ -197,14 +205,15 @@ def train_rnn():
             def validation_step(x_validation, y_validation, y_validation_bind, writer=None):
                 """Evaluates model on a validation set"""
                 batches_validation = data_helpers.batch_iter(
-                    list(zip(x_validation, y_validation, y_validation_bind)), 8 * FLAGS.batch_size, FLAGS.num_epochs)
+                    list(zip(x_validation, y_validation, y_validation_bind)), FLAGS.batch_size, FLAGS.num_epochs)
                 eval_loss, eval_rec, eval_acc, eval_counter = 0.0, 0.0, 0.0, 0
                 for batch_validation in batches_validation:
                     x_batch_validation, y_batch_validation, y_batch_validation_bind = zip(*batch_validation)
                     feed_dict = {
                         rnn.input_x: x_batch_validation,
                         rnn.input_y: y_batch_validation,
-                        rnn.dropout_keep_prob: 1.0
+                        rnn.dropout_keep_prob: 1.0,
+                        rnn.is_training: False
                     }
                     step, summaries, logits, cur_loss = sess.run(
                         [rnn.global_step, validation_summary_op, rnn.logits, rnn.loss], feed_dict)
