@@ -125,7 +125,7 @@ def train_rnn():
             #                                            staircase=True)
             optimizer = tf.train.AdamOptimizer(FLAGS.learning_rate)
             grads_and_vars = optimizer.compute_gradients(rnn.loss)
-            train_op = optimizer.apply_gradients(grads_and_vars, global_step=cnn.global_step, name="train_op")
+            train_op = optimizer.apply_gradients(grads_and_vars, global_step=rnn.global_step, name="train_op")
 
             # Keep track of gradient values and sparsity (optional)
             grad_summaries = []

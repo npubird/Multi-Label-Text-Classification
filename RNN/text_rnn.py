@@ -1,10 +1,8 @@
 # -*- coding:utf-8 -*-
 
-import os
-import sys
 import numpy as np
 import tensorflow as tf
-from tensorflow import array_ops
+from tensorflow.python.ops import array_ops
 from tensorflow import sigmoid
 from tensorflow import tanh
 from tensorflow.contrib import rnn
@@ -57,8 +55,8 @@ class BatchNormLSTMCell(rnn.RNNCell):
             xh = tf.matmul(inputs, W_xh)
             hh = tf.matmul(h, W_hh)
 
-            bn_xh = batch_norm(xh, 'xh', self._is_training)
-            bn_hh = batch_norm(hh, 'hh', self._is_training)
+            bn_xh = batch_norm(xh, self._is_training)
+            bn_hh = batch_norm(hh, self._is_training)
 
             hidden = bn_xh + bn_hh + bias
 
@@ -106,48 +104,20 @@ def orthogonal_initializer():
     return _initializer
 
 
-def batch_norm(x, name_scope, is_training, epsilon=1e-3, decay=0.999):
-    """
-    Assume 2d [batch, values] tensor
-    """
-
-    with tf.variable_scope(name_scope):
-        training = tf.constant(is_training)
-        size = x.get_shape().as_list()[1]
-
-        scale = tf.get_variable('scale', [size], initializer=tf.constant_initializer(0.1))
-        offset = tf.get_variable('offset', [size])
-
-        pop_mean = tf.get_variable('pop_mean', [size], initializer=tf.zeros_initializer(), trainable=False)
-        pop_var = tf.get_variable('pop_var', [size], initializer=tf.ones_initializer(), trainable=False)
-
-        def batch_statistics():
-            batch_mean, batch_var = tf.nn.moments(x, [0])
-            train_mean_op = tf.assign(pop_mean, pop_mean * decay + batch_mean * (1 - decay))
-            train_var_op = tf.assign(pop_var, pop_var * decay + batch_var * (1 - decay))
-
-            with tf.control_dependencies([train_mean_op, train_var_op]):
-                return tf.nn.batch_normalization(x, batch_mean, batch_var, offset, scale, epsilon)
-
-        def population_statistics():
-            return tf.nn.batch_normalization(x, pop_mean, pop_var, offset, scale, epsilon)
-
-        return tf.cond(training, batch_statistics, population_statistics)
-
-
 class TextRNN(object):
     """A RNN for text classification."""
 
     def __init__(
-            self, sequence_length, num_classes, vocab_size, hidden_size, embedding_size,
-            embedding_type, l2_reg_lambda=0.0, pretrained_embedding=None):
+            self, sequence_length, num_classes, vocab_size, hidden_size, fc_hidden_size,
+            embedding_size, embedding_type, l2_reg_lambda=0.0, pretrained_embedding=None):
 
         # Placeholders for input, output and dropout
         self.input_x = tf.placeholder(tf.int32, [None, sequence_length], name="input_x")
         self.input_y = tf.placeholder(tf.float32, [None, num_classes], name="input_y")
         self.dropout_keep_prob = tf.placeholder(tf.float32, name="dropout_keep_prob")
+        self.is_training = tf.placeholder(tf.bool)
 
-        self.global_step = tf.Variable(0, trainable=False, name="global_Step")
+        self.global_step = tf.Variable(0, trainable=False, name="Global_Step")
 
         # Keeping track of l2 regularization loss (optional)
         l2_loss = tf.constant(0.0)
@@ -157,45 +127,56 @@ class TextRNN(object):
             # 默认采用的是随机生成正态分布的词向量。
             # 也可以是通过自己的语料库训练而得到的词向量。
             if pretrained_embedding is None:
-                self.W = tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0), name="W")
+                self.embedding = tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0),
+                                             name="embedding")
             else:
                 if embedding_type == 0:
-                    self.W = tf.constant(pretrained_embedding, name="W")
-                    self.W = tf.cast(self.W, tf.float32)
+                    self.embedding = tf.constant(pretrained_embedding, name="embedding")
+                    self.embedding = tf.cast(self.embedding, tf.float32)
                 if embedding_type == 1:
-                    self.W = tf.Variable(pretrained_embedding, name="W", trainable=True)
-                    self.W = tf.cast(self.W, tf.float32)
-            self.embedded_chars = tf.nn.embedding_lookup(self.W, self.input_x)  # [None, sentence_length, embedding_size]
+                    self.embedding = tf.Variable(pretrained_embedding, name="embedding", trainable=True)
+                    self.embedding = tf.cast(self.embedding, tf.float32)
+            self.embedded_sentence = tf.nn.embedding_lookup(self.embedding, self.input_x)
 
-        # Bi-LSTM Layer
-        lstm_fw_cell = rnn.BasicLSTMCell(hidden_size)  # forward direction cell
-        lstm_bw_cell = rnn.BasicLSTMCell(hidden_size)  # backward direction cell
-        if self.dropout_keep_prob is not None:
-            lstm_fw_cell = rnn.DropoutWrapper(lstm_fw_cell, output_keep_prob=self.dropout_keep_prob)
-            lstm_bw_cell = rnn.DropoutWrapper(lstm_bw_cell, output_keep_prob=self.dropout_keep_prob)
+        with tf.name_scope("Bi-lstm"):
+            # Bi-LSTM Layer
+            lstm_fw_cell = rnn.BasicLSTMCell(hidden_size)  # forward direction cell
+            lstm_bw_cell = rnn.BasicLSTMCell(hidden_size)  # backward direction cell
+            if self.dropout_keep_prob is not None:
+                lstm_fw_cell = rnn.DropoutWrapper(lstm_fw_cell, output_keep_prob=self.dropout_keep_prob)
+                lstm_bw_cell = rnn.DropoutWrapper(lstm_bw_cell, output_keep_prob=self.dropout_keep_prob)
 
-        # Creates a dynamic bidirectional recurrent neural network:[batch_size, sequence_length, hidden_size]
-        outputs, _ = tf.nn.bidirectional_dynamic_rnn(lstm_fw_cell, lstm_bw_cell, self.embedded_chars, dtype=tf.float32)
+            # Creates a dynamic bidirectional recurrent neural network
+            # shape: [batch_size, sequence_length, hidden_size]
+            outputs, state = tf.nn.bidirectional_dynamic_rnn(lstm_fw_cell, lstm_bw_cell,
+                                                             self.embedded_sentence, dtype=tf.float32)
 
         # Concat output
-        output_rnn = tf.concat(outputs, axis=2)  # [batch_size, sequence_length, hidden_size*2]
-        self.output_rnn_last = tf.reduce_mean(output_rnn, axis=1)  # [batch_size, hidden_size*2]
+        self.lstm_concat = tf.concat(outputs, axis=2)  # [batch_size, sequence_length, hidden_size*2]
+        self.lstm_out = tf.reduce_mean(self.lstm_concat, axis=1)  # [batch_size, hidden_size*2]
 
-        # Final (unnormalized) scores and predictions
+        # Fully Connected Layer
+        with tf.name_scope("fc"):
+            W = tf.Variable(tf.truncated_normal(shape=[hidden_size*2, fc_hidden_size], stddev=0.1), name="W")
+            b = tf.Variable(tf.constant(0.1, shape=[fc_hidden_size]), dtype=tf.float32, name="b")
+            self.fc = tf.nn.xw_plus_b(self.lstm_out, W, b)
+
+            # Batch Normalization Layer
+            self.fc_bn = batch_norm(self.fc, is_training=self.is_training)
+
+            # Apply nonlinearity
+            self.fc_out = tf.nn.relu(self.fc_bn, name="relu")
+
+        # Final scores and predictions
         with tf.name_scope("output"):
-            W = tf.get_variable(
-                "W",
-                shape=[hidden_size*2, num_classes],
-                initializer=tf.contrib.layers.xavier_initializer())
+            W = tf.Variable(tf.truncated_normal(shape=[fc_hidden_size, num_classes], stddev=0.1), name="W")
             b = tf.Variable(tf.constant(0.1, shape=[num_classes]), name="b")
             l2_loss += tf.nn.l2_loss(W)
             l2_loss += tf.nn.l2_loss(b)
-            self.logits = tf.nn.xw_plus_b(self.output_rnn_last, W, b, name="logits")
+            self.logits = tf.nn.xw_plus_b(self.fc_out, W, b, name="logits")
 
-        # CalculateMean cross-entropy loss
+        # Calculate mean cross-entropy loss
         with tf.name_scope("loss"):
             losses = tf.nn.sigmoid_cross_entropy_with_logits(labels=self.input_y, logits=self.logits)
             losses = tf.reduce_sum(losses, axis=1)
             self.loss = tf.reduce_mean(losses) + l2_reg_lambda * l2_loss
-
-
