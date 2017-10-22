@@ -135,7 +135,7 @@ class TextCNN(object):
 
         # Highway Layer
         # with tf.name_scope("highway"):
-        #    self.highway = highway(self.fc_out, self.fc_out.get_shape()[1], num_layers=1, bias=0, scope="Highway")
+        #    self.highway = highway(self.fc_out, self.fc_out.get_shape()[1], num_layers=1, bias=0, name="Highway")
 
         # Add dropout
         with tf.name_scope("dropout"):
