@@ -46,16 +46,16 @@ tf.flags.DEFINE_integer("pad_seq_len", 150, "Recommand padding Sequence length o
 tf.flags.DEFINE_integer("embedding_dim", 100, "Dimensionality of character embedding (default: 128)")
 tf.flags.DEFINE_integer("embedding_type", 1, "The embedding type (default: 1)")
 tf.flags.DEFINE_integer("fc_hidden_size", 1024, "Hidden size for fully connected layer (default: 1024)")
-tf.flags.DEFINE_string("filter_sizes", "2,3,4,5,6", "Comma-separated filter sizes (default: '3,4,5')")
-tf.flags.DEFINE_integer("num_filters", 256, "Number of filters per filter size (default: 128)")
+tf.flags.DEFINE_string("filter_sizes", "3,4,5", "Comma-separated filter sizes (default: '3,4,5')")
+tf.flags.DEFINE_integer("num_filters", 128, "Number of filters per filter size (default: 128)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 0.0)")
 tf.flags.DEFINE_integer("num_classes", 367, "Number of labels (depends on the task)")
-tf.flags.DEFINE_integer("top_num", 2, "Number of top K prediction classess (default: 3)")
+tf.flags.DEFINE_integer("top_num", 1, "Number of top K prediction classess (default: 3)")
 
 # Training parameters
 tf.flags.DEFINE_integer("batch_size", 512, "Batch Size (default: 64)")
-tf.flags.DEFINE_integer("num_epochs", 200, "Number of training epochs (default: 200)")
+tf.flags.DEFINE_integer("num_epochs", 100, "Number of training epochs (default: 200)")
 tf.flags.DEFINE_integer("evaluate_every", 5000, "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_integer("decay_steps", 5000, "how many steps before decay learning rate.")
 tf.flags.DEFINE_float("decay_rate", 0.5, "Rate of decay for learning rate.")
@@ -209,7 +209,7 @@ def train_cnn():
             def validation_step(x_validation, y_validation, y_validation_bind, writer=None):
                 """Evaluates model on a validation set"""
                 batches_validation = data_helpers.batch_iter(
-                    list(zip(x_validation, y_validation, y_validation_bind)), FLAGS.batch_size, FLAGS.num_epochs)
+                    list(zip(x_validation, y_validation, y_validation_bind)), 8 * FLAGS.batch_size, FLAGS.num_epochs)
                 eval_loss, eval_rec, eval_acc, eval_counter = 0.0, 0.0, 0.0, 0
                 for batch_validation in batches_validation:
                     x_batch_validation, y_batch_validation, y_batch_validation_bind = zip(*batch_validation)
