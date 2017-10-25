@@ -9,6 +9,53 @@ from tensorflow.contrib import rnn
 from tensorflow.contrib.layers import batch_norm
 
 
+def linear(input_, output_size, scope=None):
+    """
+    Linear map: output[k] = sum_i(Matrix[k, i] * args[i] ) + Bias[k]
+    Args:
+        args: a tensor or a list of 2D, batch x n, Tensors.
+        output_size: int, second dimension of W[i].
+        scope: VariableScope for the created subgraph; defaults to "Linear".
+    Returns:
+        A 2D Tensor with shape [batch x output_size] equal to
+        sum_i(args[i] * W[i]), where W[i]s are newly created matrices.
+    Raises:
+        ValueError: if some of the arguments has unspecified or wrong shape.
+    """
+
+    shape = input_.get_shape().as_list()
+    if len(shape) != 2:
+        raise ValueError("Linear is expecting 2D arguments: %s" % str(shape))
+    if not shape[1]:
+        raise ValueError("Linear expects shape[1] of arguments: %s" % str(shape))
+    input_size = shape[1]
+
+    # Now the computation.
+    with tf.variable_scope(scope or "SimpleLinear"):
+        W = tf.get_variable("W", [output_size, input_size], dtype=input_.dtype)
+        b = tf.get_variable("b", [output_size], dtype=input_.dtype)
+
+    return tf.nn.xw_plus_b(input_, tf.transpose(W), b)
+
+
+def highway(input_, size, num_layers=1, bias=-2.0, f=tf.nn.relu, scope='Highway'):
+    """
+    Highway Network (cf. http://arxiv.org/abs/1505.00387).
+    t = sigmoid(Wy + b)
+    z = t * g(Wy + b) + (1 - t) * y
+    where g is nonlinearity, t is transform gate, and (1 - t) is carry gate.
+    """
+
+    with tf.variable_scope(scope):
+        for idx in range(num_layers):
+            g = f(linear(input_, size, scope=('highway_lin_{}'.format(idx))))
+            t = tf.sigmoid(linear(input_, size, scope=('highway_gate_{}'.format(idx))) + bias)
+            output = t * g + (1. - t) * input_
+            input_ = output
+
+    return output
+
+
 class BatchNormLSTMCell(rnn.RNNCell):
     """Batch normalized LSTM (cf. http://arxiv.org/abs/1603.09025)"""
 
@@ -167,13 +214,16 @@ class TextRNN(object):
             # Apply nonlinearity
             self.fc_out = tf.nn.relu(self.fc_bn, name="relu")
 
+        # Highway Layer
+        self.highway = highway(self.fc_out, self.fc_out.get_shape()[1], num_layers=1, bias=0, scope="Highway")
+
         # Final scores and predictions
         with tf.name_scope("output"):
             W = tf.Variable(tf.truncated_normal(shape=[fc_hidden_size, num_classes], stddev=0.1), name="W")
             b = tf.Variable(tf.constant(0.1, shape=[num_classes]), name="b")
             l2_loss += tf.nn.l2_loss(W)
             l2_loss += tf.nn.l2_loss(b)
-            self.logits = tf.nn.xw_plus_b(self.fc_out, W, b, name="logits")
+            self.logits = tf.nn.xw_plus_b(self.highway, W, b, name="logits")
 
         # Calculate mean cross-entropy loss
         with tf.name_scope("loss"):
