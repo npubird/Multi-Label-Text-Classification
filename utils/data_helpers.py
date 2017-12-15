@@ -13,7 +13,7 @@ from gensim.models import word2vec
 from tflearn.data_utils import pad_sequences
 
 
-TEXT_DIR = '../content.txt'
+TEXT_DIR = '../data/content.txt'
 
 
 def logger_fn(name, file, level=logging.INFO):
@@ -76,7 +76,7 @@ def create_word2vec_model(embedding_size, input_file=TEXT_DIR):
     :param embedding_size: The embedding size
     :param input_file: The corpus file
     """
-    word2vec_file = '../word2vec_' + str(embedding_size) + '.model'
+    word2vec_file = '../data/word2vec_' + str(embedding_size) + '.model'
 
     if os.path.isfile(word2vec_file):
         logging.info('☛ The word2vec model you want create already exists!')
@@ -94,7 +94,7 @@ def load_vocab_size(embedding_size):
     :param embedding_size: The embedding size
     :return: The vocab size of the word2vec file
     """
-    word2vec_file = '../word2vec_' + str(embedding_size) + '.model'
+    word2vec_file = '../data/word2vec_' + str(embedding_size) + '.model'
 
     if os.path.isfile(word2vec_file):
         model = word2vec.Word2Vec.load(word2vec_file)
@@ -230,7 +230,7 @@ def load_word2vec_matrix(vocab_size, embedding_size):
     :param embedding_size: The embedding size
     :return: The word2vec model matrix
     """
-    word2vec_file = '../word2vec_' + str(embedding_size) + '.model'
+    word2vec_file = '../data/word2vec_' + str(embedding_size) + '.model'
 
     if os.path.isfile(word2vec_file):
         model = gensim.models.Word2Vec.load(word2vec_file)
@@ -253,14 +253,13 @@ def load_data_and_labels(data_file, num_labels, embedding_size):
     :param embedding_size: The embedding size
     :returns: The class data and the max sentence length of the research data
     """
-    word2vec_file = '../word2vec_' + str(embedding_size) + '.model'
+    word2vec_file = '../data/word2vec_' + str(embedding_size) + '.model'
 
     # Load word2vec model file
     if os.path.isfile(word2vec_file):
         model = word2vec.Word2Vec.load(word2vec_file)
     else:
         create_word2vec_model(embedding_size, TEXT_DIR)
-
 
     # Load data from files and split by words
     data = data_word2vec(input_file=data_file, num_labels=num_labels, word2vec_model=model)
@@ -294,7 +293,7 @@ def plot_seq_len(data_file, data, percentage=0.98):
     :param data: The class Data (includes the data tokenindex and data labels)
     :param percentage: The percentage of the total data you want to show
     """
-    output_file = data_file.split('.')[0] + ' Sequence Length Distribution Histogram.png'
+    output_file = '../data/data_analysis/' + data_file.split('.')[0] + ' Sequence Length Distribution Histogram.png'
     result = dict()
     for x in data.tokenindex:
         if len(x) not in result.keys():

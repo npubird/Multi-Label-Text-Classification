@@ -4,12 +4,12 @@ import os
 import time
 import numpy as np
 import tensorflow as tf
-import data_helpers
+from utils import data_helpers as dh
 
 # Parameters
 # ==================================================
 
-logger = data_helpers.logger_fn('tflog', 'test-{}.log'.format(time.asctime()))
+logger = dh.logger_fn('tflog', 'logs/test-{}.log'.format(time.asctime()))
 
 MODEL = input("☛ Please input the model file you want to test, it should be like(1490175368): ")
 
@@ -24,9 +24,9 @@ logger.info('✔︎ The format of your input is legal, now loading to next step.
 
 CLASS_BIND = CLASS_BIND.upper()
 
-TRAININGSET_DIR = '../Train.json'
-VALIDATIONSET_DIR = '../Validation_bind.json'
-TESTSET_DIR = '../Test.json'
+TRAININGSET_DIR = '../data/Train.json'
+VALIDATIONSET_DIR = '../data/Validation_bind.json'
+TESTSET_DIR = '../data/Test.json'
 MODEL_DIR = 'runs/' + MODEL + '/checkpoints/'
 SAVE_FILE = 'predictions.txt'
 
@@ -72,15 +72,15 @@ def test_cnn():
     logger.info('Recommand padding Sequence length is: {}'.format(FLAGS.pad_seq_len))
 
     logger.info('✔︎ Test data processing...')
-    test_data = data_helpers.load_data_and_labels(FLAGS.test_data_file, FLAGS.num_classes, FLAGS.embedding_dim)
+    test_data = dh.load_data_and_labels(FLAGS.test_data_file, FLAGS.num_classes, FLAGS.embedding_dim)
 
     logger.info('✔︎ Test data padding...')
-    x_test, y_test = data_helpers.pad_data(test_data, FLAGS.pad_seq_len)
+    x_test, y_test = dh.pad_data(test_data, FLAGS.pad_seq_len)
     y_test_bind = test_data.labels_bind
 
     # Build vocabulary
-    VOCAB_SIZE = data_helpers.load_vocab_size(FLAGS.embedding_dim)
-    pretrained_word2vec_matrix = data_helpers.load_word2vec_matrix(VOCAB_SIZE, FLAGS.embedding_dim)
+    VOCAB_SIZE = dh.load_vocab_size(FLAGS.embedding_dim)
+    pretrained_word2vec_matrix = dh.load_word2vec_matrix(VOCAB_SIZE, FLAGS.embedding_dim)
 
     # Load cnn model
     logger.info("✔ Loading model...")
@@ -112,7 +112,7 @@ def test_cnn():
             logits = graph.get_operation_by_name("output/logits").outputs[0]
 
             # Generate batches for one epoch
-            batches = data_helpers.batch_iter(list(zip(x_test, y_test, y_test_bind)),
+            batches = dh.batch_iter(list(zip(x_test, y_test, y_test_bind)),
                                               FLAGS.batch_size, 1, shuffle=False)
 
             # Collect the predictions here
@@ -127,15 +127,15 @@ def test_cnn():
                 batch_logits = sess.run(logits, feed_dict)
 
                 if FLAGS.use_classbind_or_not == 'Y':
-                    predicted_labels = data_helpers.get_label_using_logits_and_classbind(
+                    predicted_labels = dh.get_label_using_logits_and_classbind(
                         batch_logits, y_batch_test_bind, top_number=FLAGS.top_num)
                 if FLAGS.use_classbind_or_not == 'N':
-                    predicted_labels = data_helpers.get_label_using_logits(batch_logits, top_number=FLAGS.top_num)
+                    predicted_labels = dh.get_label_using_logits(batch_logits, top_number=FLAGS.top_num)
 
                 all_predicitons = np.append(all_predicitons, predicted_labels)
                 cur_rec, cur_acc = 0.0, 0.0
                 for index, predicted_label in enumerate(predicted_labels):
-                    rec_inc, acc_inc = data_helpers.cal_rec_and_acc(predicted_label, y_batch_test[index])
+                    rec_inc, acc_inc = dh.cal_rec_and_acc(predicted_label, y_batch_test[index])
                     cur_rec, cur_acc = cur_rec + rec_inc, cur_acc + acc_inc
 
                 cur_rec = cur_rec / len(y_batch_test)

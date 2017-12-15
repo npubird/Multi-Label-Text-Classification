@@ -5,7 +5,7 @@ import time
 import datetime
 import logging
 import tensorflow as tf
-import data_helpers
+from utils import data_helpers as dh
 from text_cnn import TextCNN
 
 # Parameters
@@ -27,12 +27,12 @@ logging.info('✔︎ The format of your input is legal, now loading to next step
 CLASS_BIND = CLASS_BIND.upper()
 
 if TRAIN_OR_RESTORE == 'T':
-    logger = data_helpers.logger_fn('tflog', 'training-{}.log'.format(time.asctime()))
+    logger = dh.logger_fn('tflog', 'logs/training-{}.log'.format(time.asctime()))
 if TRAIN_OR_RESTORE == 'R':
-    logger = data_helpers.logger_fn('tflog', 'restore-{}.log'.format(time.asctime()))
+    logger = dh.logger_fn('tflog', 'logs/restore-{}.log'.format(time.asctime()))
 
-TRAININGSET_DIR = '../Train.json'
-VALIDATIONSET_DIR = '../Validation_bind.json'
+TRAININGSET_DIR = '../data/Train.json'
+VALIDATIONSET_DIR = '../data/Validation_bind.json'
 
 # Data loading params
 tf.flags.DEFINE_string("training_data_file", TRAININGSET_DIR, "Data source for the training data.")
@@ -81,25 +81,25 @@ def train_cnn():
     logger.info('✔︎ Loading data...')
 
     logger.info('✔︎ Training data processing...')
-    train_data = data_helpers.load_data_and_labels(FLAGS.training_data_file, FLAGS.num_classes, FLAGS.embedding_dim)
+    train_data = dh.load_data_and_labels(FLAGS.training_data_file, FLAGS.num_classes, FLAGS.embedding_dim)
 
     logger.info('✔︎ Validation data processing...')
     validation_data = \
-        data_helpers.load_data_and_labels(FLAGS.validation_data_file, FLAGS.num_classes, FLAGS.embedding_dim)
+        dh.load_data_and_labels(FLAGS.validation_data_file, FLAGS.num_classes, FLAGS.embedding_dim)
 
     logger.info('Recommand padding Sequence length is: {}'.format(FLAGS.pad_seq_len))
 
     logger.info('✔︎ Training data padding...')
-    x_train, y_train = data_helpers.pad_data(train_data, FLAGS.pad_seq_len)
+    x_train, y_train = dh.pad_data(train_data, FLAGS.pad_seq_len)
 
     logger.info('✔︎ Validation data padding...')
-    x_validation, y_validation = data_helpers.pad_data(validation_data, FLAGS.pad_seq_len)
+    x_validation, y_validation = dh.pad_data(validation_data, FLAGS.pad_seq_len)
 
     y_validation_bind = validation_data.labels_bind
 
     # Build vocabulary
-    VOCAB_SIZE = data_helpers.load_vocab_size(FLAGS.embedding_dim)
-    pretrained_word2vec_matrix = data_helpers.load_word2vec_matrix(VOCAB_SIZE, FLAGS.embedding_dim)
+    VOCAB_SIZE = dh.load_vocab_size(FLAGS.embedding_dim)
+    pretrained_word2vec_matrix = dh.load_word2vec_matrix(VOCAB_SIZE, FLAGS.embedding_dim)
 
     # Build a graph and cnn object
     with tf.Graph().as_default():
@@ -208,7 +208,7 @@ def train_cnn():
 
             def validation_step(x_validation, y_validation, y_validation_bind, writer=None):
                 """Evaluates model on a validation set"""
-                batches_validation = data_helpers.batch_iter(
+                batches_validation = dh.batch_iter(
                     list(zip(x_validation, y_validation, y_validation_bind)), 8 * FLAGS.batch_size, FLAGS.num_epochs)
                 eval_loss, eval_rec, eval_acc, eval_counter = 0.0, 0.0, 0.0, 0
                 for batch_validation in batches_validation:
@@ -223,14 +223,14 @@ def train_cnn():
                         [cnn.global_step, validation_summary_op, cnn.logits, cnn.loss], feed_dict)
 
                     if FLAGS.use_classbind_or_not == 'Y':
-                        predicted_labels = data_helpers.get_label_using_logits_and_classbind(
+                        predicted_labels = dh.get_label_using_logits_and_classbind(
                             logits, y_batch_validation_bind, top_number=FLAGS.top_num)
                     if FLAGS.use_classbind_or_not == 'N':
-                        predicted_labels = data_helpers.get_label_using_logits(logits, top_number=FLAGS.top_num)
+                        predicted_labels = dh.get_label_using_logits(logits, top_number=FLAGS.top_num)
 
                     cur_rec, cur_acc = 0.0, 0.0
                     for index, predicted_label in enumerate(predicted_labels):
-                        rec_inc, acc_inc = data_helpers.cal_rec_and_acc(predicted_label, y_batch_validation[index])
+                        rec_inc, acc_inc = dh.cal_rec_and_acc(predicted_label, y_batch_validation[index])
                         cur_rec, cur_acc = cur_rec + rec_inc, cur_acc + acc_inc
 
                     cur_rec = cur_rec / len(y_batch_validation)
@@ -250,7 +250,7 @@ def train_cnn():
                 return eval_loss, eval_rec, eval_acc
 
             # Generate batches
-            batches_train = data_helpers.batch_iter(
+            batches_train = dh.batch_iter(
                 list(zip(x_train, y_train)), FLAGS.batch_size, FLAGS.num_epochs)
 
             # Training loop. For each batch...
