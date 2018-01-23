@@ -1,4 +1,5 @@
 # -*- coding:utf-8 -*-
+__author__ = 'Randolph'
 
 import tensorflow as tf
 from tensorflow.contrib.layers import batch_norm
@@ -20,9 +21,9 @@ def linear(input_, output_size, scope=None):
 
     shape = input_.get_shape().as_list()
     if len(shape) != 2:
-        raise ValueError("Linear is expecting 2D arguments: %s" % str(shape))
+        raise ValueError("Linear is expecting 2D arguments: {0}".format(str(shape)))
     if not shape[1]:
-        raise ValueError("Linear expects shape[1] of arguments: %s" % str(shape))
+        raise ValueError("Linear expects shape[1] of arguments: {0}".format(str(shape)))
     input_size = shape[1]
 
     # Now the computation.
@@ -43,8 +44,8 @@ def highway(input_, size, num_layers=1, bias=-2.0, f=tf.nn.relu, scope='Highway'
 
     with tf.variable_scope(scope):
         for idx in range(num_layers):
-            g = f(linear(input_, size, scope=('highway_lin_{}'.format(idx))))
-            t = tf.sigmoid(linear(input_, size, scope=('highway_gate_{}'.format(idx))) + bias)
+            g = f(linear(input_, size, scope=('highway_lin_{0}'.format(idx))))
+            t = tf.sigmoid(linear(input_, size, scope=('highway_gate_{0}'.format(idx))) + bias)
             output = t * g + (1. - t) * input_
             input_ = output
 
@@ -71,8 +72,8 @@ class TextCNN(object):
 
         # Embedding layer
         with tf.device('/cpu:0'), tf.name_scope("embedding"):
-            # 默认采用的是随机生成正态分布的词向量。
-            # 也可以是通过自己的语料库训练而得到的词向量。
+            # Use random generated the word vector by default
+            # Can also be obtained through our own word vectors trained by our corpus
             if pretrained_embedding is None:
                 self.embedding = tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0),
                                              name="embedding")
@@ -90,7 +91,7 @@ class TextCNN(object):
         pooled_outputs = []
 
         for i, filter_size in enumerate(filter_sizes):
-            with tf.name_scope("conv-filter{}".format(filter_size)):
+            with tf.name_scope("conv-filter{0}".format(filter_size)):
                 # Convolution Layer
                 filter_shape = [filter_size, embedding_size, 1, num_filters]
                 W = tf.Variable(tf.truncated_normal(shape=filter_shape, stddev=0.1), name="W")
@@ -108,7 +109,7 @@ class TextCNN(object):
                 # Apply nonlinearity
                 conv_out = tf.nn.relu(conv_bn, name="relu")
 
-            with tf.name_scope("pool-filter{}".format(filter_size)):
+            with tf.name_scope("pool-filter{0}".format(filter_size)):
                 # Maxpooling over the outputs
                 pooled = tf.nn.max_pool(
                     conv_out,

@@ -1,4 +1,5 @@
 # -*- coding:utf-8 -*-
+__author__ = 'Randolph'
 
 import os
 import time
@@ -27,9 +28,9 @@ logging.info('✔︎ The format of your input is legal, now loading to next step
 CLASS_BIND = CLASS_BIND.upper()
 
 if TRAIN_OR_RESTORE == 'T':
-    logger = dh.logger_fn('tflog', 'logs/training-{}.log'.format(time.asctime()))
+    logger = dh.logger_fn('tflog', 'logs/training-{0}.log'.format(time.asctime()))
 if TRAIN_OR_RESTORE == 'R':
-    logger = dh.logger_fn('tflog', 'logs/restore-{}.log'.format(time.asctime()))
+    logger = dh.logger_fn('tflog', 'logs/restore-{0}.log'.format(time.asctime()))
 
 TRAININGSET_DIR = '../data/Train.json'
 VALIDATIONSET_DIR = '../data/Validation_bind.json'
@@ -42,14 +43,14 @@ tf.flags.DEFINE_string("use_classbind_or_not", CLASS_BIND, "Use the class bind i
 
 # Model Hyperparameterss
 tf.flags.DEFINE_float("learning_rate", 0.001, "The learning rate (default: 0.001)")
-tf.flags.DEFINE_integer("pad_seq_len", 150, "Recommand padding Sequence length of data (depends on the data)")
+tf.flags.DEFINE_integer("pad_seq_len", 150, "Recommended padding Sequence length of data (depends on the data)")
 tf.flags.DEFINE_integer("embedding_dim", 100, "Dimensionality of character embedding (default: 128)")
 tf.flags.DEFINE_integer("embedding_type", 1, "The embedding type (default: 1)")
 tf.flags.DEFINE_integer("fc_hidden_size", 1024, "Hidden size for fully connected layer (default: 1024)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 0.0)")
 tf.flags.DEFINE_integer("num_classes", 367, "Number of labels (depends on the task)")
-tf.flags.DEFINE_integer("top_num", 1, "Number of top K prediction classess (default: 3)")
+tf.flags.DEFINE_integer("top_num", 1, "Number of top K prediction classes (default: 3)")
 
 # Training parameters
 tf.flags.DEFINE_integer("batch_size", 512, "Batch Size (default: 64)")
@@ -83,7 +84,7 @@ def train_fasttext():
     validation_data = \
         dh.load_data_and_labels(FLAGS.validation_data_file, FLAGS.num_classes, FLAGS.embedding_dim)
 
-    logger.info('Recommand padding Sequence length is: {}'.format(FLAGS.pad_seq_len))
+    logger.info('Recommended padding Sequence length is: {0}'.format(FLAGS.pad_seq_len))
 
     logger.info('✔︎ Training data padding...')
     x_train, y_train = dh.pad_data(train_data, FLAGS.pad_seq_len)
@@ -127,8 +128,8 @@ def train_fasttext():
             grad_summaries = []
             for g, v in grads_and_vars:
                 if g is not None:
-                    grad_hist_summary = tf.summary.histogram("{}/grad/hist".format(v.name), g)
-                    sparsity_summary = tf.summary.scalar("{}/grad/sparsity".format(v.name), tf.nn.zero_fraction(g))
+                    grad_hist_summary = tf.summary.histogram("{0}/grad/hist".format(v.name), g)
+                    sparsity_summary = tf.summary.scalar("{0}/grad/sparsity".format(v.name), tf.nn.zero_fraction(g))
                     grad_summaries.append(grad_hist_summary)
                     grad_summaries.append(sparsity_summary)
             grad_summaries_merged = tf.summary.merge(grad_summaries)
@@ -145,11 +146,11 @@ def train_fasttext():
                 checkpoint_dir = 'runs/' + MODEL + '/checkpoints/'
 
                 out_dir = os.path.abspath(os.path.join(os.path.curdir, "runs", MODEL))
-                logger.info("✔︎ Writing to {}\n".format(out_dir))
+                logger.info("✔︎ Writing to {0}\n".format(out_dir))
             else:
                 timestamp = str(int(time.time()))
                 out_dir = os.path.abspath(os.path.join(os.path.curdir, "runs", timestamp))
-                logger.info("✔︎ Writing to {}\n".format(out_dir))
+                logger.info("✔︎ Writing to {0}\n".format(out_dir))
 
             # Summaries for loss and accuracy
             loss_summary = tf.summary.scalar("loss", fasttext.loss)
@@ -174,7 +175,7 @@ def train_fasttext():
                 logger.info(checkpoint_file)
 
                 # Load the saved meta graph and restore variables
-                saver = tf.train.import_meta_graph("{}.meta".format(checkpoint_file))
+                saver = tf.train.import_meta_graph("{0}.meta".format(checkpoint_file))
                 saver.restore(sess, checkpoint_file)
             else:
                 checkpoint_dir = os.path.abspath(os.path.join(out_dir, "checkpoints"))
@@ -196,8 +197,7 @@ def train_fasttext():
                 _, step, summaries, loss = sess.run(
                     [train_op, fasttext.global_step, train_summary_op, fasttext.loss], feed_dict)
                 time_str = datetime.datetime.now().isoformat()
-                logger.info("{}: step {}, loss {:g}"
-                                 .format(time_str, step, loss))
+                logger.info("{0}: step {1}, loss {2:g}".format(time_str, step, loss))
                 train_summary_writer.add_summary(summaries, step)
 
             def validation_step(x_validation, y_validation, y_validation_bind, writer=None):
@@ -232,7 +232,7 @@ def train_fasttext():
 
                     eval_loss, eval_rec, eval_acc, eval_counter = eval_loss + cur_loss, eval_rec + cur_rec, \
                                                                   eval_acc + cur_acc, eval_counter + 1
-                    logger.info("✔︎ validation batch {} finished.".format(eval_counter))
+                    logger.info("✔︎ validation batch {0} finished.".format(eval_counter))
 
                     if writer:
                         writer.add_summary(summaries, step)
@@ -258,13 +258,13 @@ def train_fasttext():
                     eval_loss, eval_rec, eval_acc = validation_step(x_validation, y_validation, y_validation_bind,
                                                                     writer=validation_summary_writer)
                     time_str = datetime.datetime.now().isoformat()
-                    logger.info("{}: step {}, loss {:g}, rec {:g}, acc {:g}"
+                    logger.info("{0}: step {1}, loss {2:g}, rec {3:g}, acc {4:g}"
                                 .format(time_str, current_step, eval_loss, eval_rec, eval_acc))
 
                 if current_step % FLAGS.checkpoint_every == 0:
                     checkpoint_prefix = os.path.join(checkpoint_dir, "model")
                     path = saver.save(sess, checkpoint_prefix, global_step=current_step)
-                    logger.info("✔︎ Saved model checkpoint to {}\n".format(path))
+                    logger.info("✔︎ Saved model checkpoint to {0}\n".format(path))
 
     logger.info("✔︎ Done.")
 

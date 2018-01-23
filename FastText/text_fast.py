@@ -1,4 +1,5 @@
 # -*- coding:utf-8 -*-
+__author__ = 'Randolph'
 
 import tensorflow as tf
 from tensorflow.contrib.layers import batch_norm
@@ -24,8 +25,8 @@ class TextFAST(object):
 
         # Embedding layer
         with tf.device('/cpu:0'), tf.name_scope("embedding"):
-            # 默认采用的是随机生成正态分布的词向量。
-            # 也可以是通过自己的语料库训练而得到的词向量。
+            # Use random generated the word vector by default
+            # Can also be obtained through our own word vectors trained by our corpus
             if pretrained_embedding is None:
                 self.embedding = tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0),
                                              name="embedding")
@@ -39,7 +40,7 @@ class TextFAST(object):
             self.embedded_sentence = tf.nn.embedding_lookup(self.embedding, self.input_x)
 
         # Average Vectors
-        self.embedded_sentence_average = tf.reduce_mean(self.embedded_sentence, axis=1) # [batch_size, embedding_size]
+        self.embedded_sentence_average = tf.reduce_mean(self.embedded_sentence, axis=1)  # [batch_size, embedding_size]
 
         # Fully Connected Layer
         with tf.name_scope("fc"):
