@@ -60,7 +60,7 @@ tf.flags.DEFINE_boolean("gpu_options_allow_growth", True, "Allow gpu options gro
 FLAGS = tf.flags.FLAGS
 FLAGS._parse_flags()
 dilim = '-' * 100
-logger.info('\n'.join([dilim, *['{:>50}|{:<50}'.format(attr.upper(), value)
+logger.info('\n'.join([dilim, *['{0:>50}|{1:<50}'.format(attr.upper(), value)
                                 for attr, value in sorted(FLAGS.__flags.items())], dilim]))
 
 
