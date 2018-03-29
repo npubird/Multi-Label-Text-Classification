@@ -1,4 +1,5 @@
 # -*- coding:utf-8 -*-
+__author__ = 'Randolph'
 
 import numpy as np
 import tensorflow as tf
@@ -25,9 +26,9 @@ def linear(input_, output_size, scope=None):
 
     shape = input_.get_shape().as_list()
     if len(shape) != 2:
-        raise ValueError("Linear is expecting 2D arguments: %s" % str(shape))
+        raise ValueError("Linear is expecting 2D arguments: {0}".format(str(shape)))
     if not shape[1]:
-        raise ValueError("Linear expects shape[1] of arguments: %s" % str(shape))
+        raise ValueError("Linear expects shape[1] of arguments: {0}".format(str(shape)))
     input_size = shape[1]
 
     # Now the computation.
@@ -48,8 +49,8 @@ def highway(input_, size, num_layers=1, bias=-2.0, f=tf.nn.relu, scope='Highway'
 
     with tf.variable_scope(scope):
         for idx in range(num_layers):
-            g = f(linear(input_, size, scope=('highway_lin_{}'.format(idx))))
-            t = tf.sigmoid(linear(input_, size, scope=('highway_gate_{}'.format(idx))) + bias)
+            g = f(linear(input_, size, scope=('highway_lin_{0}'.format(idx))))
+            t = tf.sigmoid(linear(input_, size, scope=('highway_gate_{0}'.format(idx))) + bias)
             output = t * g + (1. - t) * input_
             input_ = output
 
@@ -171,8 +172,8 @@ class TextRNN(object):
 
         # Embedding layer
         with tf.device('/cpu:0'), tf.name_scope("embedding"):
-            # 默认采用的是随机生成正态分布的词向量。
-            # 也可以是通过自己的语料库训练而得到的词向量。
+            # Use random generated the word vector by default
+            # Can also be obtained through our own word vectors trained by our corpus
             if pretrained_embedding is None:
                 self.embedding = tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0),
                                              name="embedding")
