@@ -108,5 +108,6 @@ Icon?
 *.model
 *.png
 *.graffle
+*.tsv
 RNN/MyAttention.py
 RNN/text_rnn-raw.py
