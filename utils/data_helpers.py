@@ -13,8 +13,8 @@ from pylab import *
 from gensim.models import word2vec
 from tflearn.data_utils import pad_sequences
 
-
 TEXT_DIR = '../data/content.txt'
+METADATA_DIR = '../data/metadata.tsv'
 
 
 def logger_fn(name, file, level=logging.INFO):
@@ -69,6 +69,31 @@ def cal_rec_and_acc(predicted_labels, labels):
     rec = count / len(label_no_zero)
     acc = count / len(predicted_labels)
     return rec, acc
+
+
+def create_metadata_file(vocab_size, embedding_size, output_file=METADATA_DIR):
+    """
+    Create the metadata file based on the corpus file(Use for the Embedding Visualization later).
+    :param input_file: The corpus file
+    :param output_file: The metadata file (default: 'metadata.tsv')
+    """
+    word2vec_file = '../data/word2vec_' + str(embedding_size) + '.model'
+
+    if os.path.isfile(word2vec_file):
+        model = gensim.models.Word2Vec.load(word2vec_file)
+        word2idx = dict([(k, v.index) for k, v in model.wv.vocab.items()])
+        word2idx_sorted = [(k, word2idx[k]) for k in sorted(word2idx, key=word2idx.get, reverse=False)]
+
+        with open(output_file, 'w+') as fout:
+            for word in word2idx_sorted:
+                if word[0] is None:
+                    logging.info("Emply Line, should replecaed by any thing else, or will cause a bug of tensorboard")
+                    fout.write('<Empty Line>' + '\n')
+                else:
+                    fout.write(word[0] + '\n')
+    else:
+        logging.info("✘ The word2vec file doesn't exist. "
+                     "Please use function <create_vocab_size(embedding_size)> to create it!")
 
 
 def create_word2vec_model(embedding_size, input_file=TEXT_DIR):
@@ -155,7 +180,6 @@ def data_word2vec(input_file, num_labels, word2vec_model):
     :param word2vec_model: The word2vec model file
     :return: The class Data(includes the data tokenindex and data labels)
     """
-
     vocab = dict([(k, v.index) for (k, v) in word2vec_model.wv.vocab.items()])
 
     def token_to_index(content):
@@ -268,8 +292,8 @@ def load_data_and_labels(data_file, num_labels, embedding_size):
 
     # plot_seq_len(data_file, data)
 
-    logging.info('Found {} texts.'.format(data.number))
-    # logging.info('Augmented {} texts.'.format(aug_data.number))
+    logging.info('Found {0} texts.'.format(data.number))
+    # logging.info('Augmented {0} texts.'.format(aug_data.number))
 
     return data
 
@@ -337,7 +361,7 @@ def batch_iter(data, batch_size, num_epochs, shuffle=True):
     """
     data = np.array(data)
     data_size = len(data)
-    num_batches_per_epoch = int((len(data) - 1) / batch_size) + 1
+    num_batches_per_epoch = int((data_size - 1) / batch_size) + 1
     for epoch in range(num_epochs):
         # Shuffle the data at each epoch
         if shuffle:
@@ -349,3 +373,6 @@ def batch_iter(data, batch_size, num_epochs, shuffle=True):
             start_index = batch_num * batch_size
             end_index = min((batch_num + 1) * batch_size, data_size)
             yield shuffled_data[start_index:end_index]
+
+vocab_size = load_vocab_size(100)
+create_metadata_file(vocab_size, 100)
