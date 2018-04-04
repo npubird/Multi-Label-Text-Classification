@@ -2,12 +2,15 @@
 __author__ = 'Randolph'
 
 import os
+import sys
 import time
 import datetime
 import logging
 import tensorflow as tf
+
 from utils import data_helpers as dh
 from text_cnn import TextCNN
+from tensorboard.plugins import projector
 
 # Parameters
 # ==================================================
@@ -34,14 +37,17 @@ if TRAIN_OR_RESTORE == 'R':
 
 TRAININGSET_DIR = '../data/Train.json'
 VALIDATIONSET_DIR = '../data/Validation_bind.json'
+METADATA_DIR = '../data/metadata.tsv'
 
-# Data loading params
+# Data Parameters
 tf.flags.DEFINE_string("training_data_file", TRAININGSET_DIR, "Data source for the training data.")
 tf.flags.DEFINE_string("validation_data_file", VALIDATIONSET_DIR, "Data source for the validation data.")
+tf.flags.DEFINE_string("metadata_file", METADATA_DIR, "Metadata file for embedding visualization"
+                                                      "(Each line is a word segment in metadata_file).")
 tf.flags.DEFINE_string("train_or_restore", TRAIN_OR_RESTORE, "Train or Restore.")
 tf.flags.DEFINE_string("use_classbind_or_not", CLASS_BIND, "Use the class bind info or not.")
 
-# Model Hyperparameterss
+# Model Hyperparameters
 tf.flags.DEFINE_float("learning_rate", 0.001, "The learning rate (default: 0.001)")
 tf.flags.DEFINE_integer("pad_seq_len", 150, "Recommended padding Sequence length of data (depends on the data)")
 tf.flags.DEFINE_integer("embedding_dim", 100, "Dimensionality of character embedding (default: 128)")
@@ -54,7 +60,7 @@ tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 
 tf.flags.DEFINE_integer("num_classes", 367, "Number of labels (depends on the task)")
 tf.flags.DEFINE_integer("top_num", 1, "Number of top K prediction classes (default: 3)")
 
-# Training parameters
+# Training Parameters
 tf.flags.DEFINE_integer("batch_size", 512, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer("num_epochs", 200, "Number of training epochs (default: 200)")
 tf.flags.DEFINE_integer("evaluate_every", 5000, "Evaluate model on dev set after this many steps (default: 100)")
@@ -69,10 +75,10 @@ tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on 
 tf.flags.DEFINE_boolean("gpu_options_allow_growth", True, "Allow gpu options growth")
 
 FLAGS = tf.flags.FLAGS
-FLAGS._parse_flags()
+FLAGS(sys.argv)
 dilim = '-' * 100
-logger.info('\n'.join([dilim, *['{0:>50}|{1:<50}'.format(attr.upper(), value)
-                                for attr, value in sorted(FLAGS.__flags.items())], dilim]))
+logger.info('\n'.join([dilim, *['{0:>50}|{1:<50}'.format(attr.upper(), FLAGS.__getattr__(attr))
+                                for attr in sorted(FLAGS.__dict__['__wrapped'])], dilim]))
 
 
 def train_cnn():
@@ -122,7 +128,7 @@ def train_cnn():
                 l2_reg_lambda=FLAGS.l2_reg_lambda,
                 pretrained_embedding=pretrained_word2vec_matrix)
 
-            # Define Training procedure
+            # Define training procedure
             # learning_rate = tf.train.exponential_decay(learning_rate=FLAGS.learning_rate, global_step=cnn.global_step,
             #                                            decay_steps=FLAGS.decay_steps, decay_rate=FLAGS.decay_rate,
             #                                            staircase=True)
@@ -162,7 +168,7 @@ def train_cnn():
             loss_summary = tf.summary.scalar("loss", cnn.loss)
             # acc_summary = tf.summary.scalar("accuracy", cnn.accuracy)
 
-            # Train Summaries
+            # Train summaries
             train_summary_op = tf.summary.merge([loss_summary, grad_summaries_merged])
             train_summary_dir = os.path.join(out_dir, "summaries", "train")
             train_summary_writer = tf.summary.FileWriter(train_summary_dir, sess.graph)
@@ -189,6 +195,18 @@ def train_cnn():
                     os.makedirs(checkpoint_dir)
                 sess.run(tf.global_variables_initializer())
                 sess.run(tf.local_variables_initializer())
+
+                # Embedding visualization config
+                config = projector.ProjectorConfig()
+                embedding_conf = config.embeddings.add()
+                embedding_conf.tensor_name = 'embedding'
+                embedding_conf.metadata_path = FLAGS.metadata_file
+
+                projector.visualize_embeddings(train_summary_writer, config)
+                projector.visualize_embeddings(validation_summary_writer, config)
+
+                # Save the embedding visualization
+                saver.save(sess, os.path.join(out_dir, 'embedding', 'embedding.ckpt'))
 
             current_step = sess.run(cnn.global_step)
 
