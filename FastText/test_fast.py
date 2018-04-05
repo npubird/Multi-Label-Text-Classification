@@ -1,7 +1,7 @@
 # -*- coding:utf-8 -*-
 __author__ = 'Randolph'
 
-import os
+import sys
 import time
 import numpy as np
 import tensorflow as tf
@@ -31,7 +31,7 @@ TESTSET_DIR = '../data/Test.json'
 MODEL_DIR = 'runs/' + MODEL + '/checkpoints/'
 SAVE_FILE = 'predictions.txt'
 
-# Data loading params
+# Data Parameters
 tf.flags.DEFINE_string("training_data_file", TRAININGSET_DIR, "Data source for the training data.")
 tf.flags.DEFINE_string("validation_data_file", VALIDATIONSET_DIR, "Data source for the validation data")
 tf.flags.DEFINE_string("test_data_file", TESTSET_DIR, "Data source for the test data")
@@ -48,7 +48,7 @@ tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 
 tf.flags.DEFINE_integer("num_classes", 367, "Number of labels (depends on the task)")
 tf.flags.DEFINE_integer("top_num", 2, "Number of top K prediction classes (default: 3)")
 
-# Test parameters
+# Test Parameters
 tf.flags.DEFINE_integer("batch_size", 512, "Batch Size (default: 64)")
 
 # Misc Parameters
@@ -57,10 +57,10 @@ tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on 
 tf.flags.DEFINE_boolean("gpu_options_allow_growth", True, "Allow gpu options growth")
 
 FLAGS = tf.flags.FLAGS
-FLAGS._parse_flags()
+FLAGS(sys.argv)
 dilim = '-' * 100
-logger.info('\n'.join([dilim, *['{0:>50}|{1:<50}'.format(attr.upper(), value)
-                                for attr, value in sorted(FLAGS.__flags.items())], dilim]))
+logger.info('\n'.join([dilim, *['{0:>50}|{1:<50}'.format(attr.upper(), FLAGS.__getattr__(attr))
+                                for attr in sorted(FLAGS.__dict__['__wrapped'])], dilim]))
 
 
 def test_fasttext():

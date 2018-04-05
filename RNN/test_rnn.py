@@ -1,15 +1,16 @@
 # -*- coding:utf-8 -*-
 __author__ = 'Randolph'
 
+import sys
 import time
 import numpy as np
 import tensorflow as tf
-import data_helpers
+from utils import data_helpers as dh
 
 # Parameters
 # ==================================================
 
-logger = data_helpers.logger_fn('tflog', 'test-{0}.log'.format(time.asctime()))
+logger = dh.logger_fn('tflog', 'logs/test-{0}.log'.format(time.asctime()))
 
 MODEL = input("☛ Please input the model file you want to test, it should be like(1490175368): ")
 
@@ -30,7 +31,7 @@ TESTSET_DIR = '../data/Test.json'
 MODEL_DIR = 'runs/' + MODEL + '/checkpoints/'
 SAVE_FILE = 'predictions.txt'
 
-# Data loading params
+# Data Parameters
 tf.flags.DEFINE_string("training_data_file", TRAININGSET_DIR, "Data source for the training data.")
 tf.flags.DEFINE_string("validation_data_file", VALIDATIONSET_DIR, "Data source for the validation data")
 tf.flags.DEFINE_string("test_data_file", TESTSET_DIR, "Data source for the test data")
@@ -48,7 +49,7 @@ tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 
 tf.flags.DEFINE_integer("num_classes", 367, "Number of labels (depends on the task)")
 tf.flags.DEFINE_integer("top_num", 2, "Number of top K prediction classes (default: 3)")
 
-# Test parameters
+# Test Parameters
 tf.flags.DEFINE_integer("batch_size", 512, "Batch Size (default: 64)")
 
 # Misc Parameters
@@ -57,10 +58,10 @@ tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on 
 tf.flags.DEFINE_boolean("gpu_options_allow_growth", True, "Allow gpu options growth")
 
 FLAGS = tf.flags.FLAGS
-FLAGS._parse_flags()
+FLAGS(sys.argv)
 dilim = '-' * 100
-logger.info('\n'.join([dilim, *['{0:>50}|{1:<50}'.format(attr.upper(), value)
-                                for attr, value in sorted(FLAGS.__flags.items())], dilim]))
+logger.info('\n'.join([dilim, *['{0:>50}|{1:<50}'.format(attr.upper(), FLAGS.__getattr__(attr))
+                                for attr in sorted(FLAGS.__dict__['__wrapped'])], dilim]))
 
 
 def test_rnn():
@@ -71,15 +72,15 @@ def test_rnn():
     logger.info('Recommended padding Sequence length is: {0}'.format(FLAGS.pad_seq_len))
 
     logger.info('✔︎ Test data processing...')
-    test_data = data_helpers.load_data_and_labels(FLAGS.test_data_file, FLAGS.num_classes, FLAGS.embedding_dim)
+    test_data = dh.load_data_and_labels(FLAGS.test_data_file, FLAGS.num_classes, FLAGS.embedding_dim)
 
     logger.info('✔︎ Test data padding...')
-    x_test, y_test = data_helpers.pad_data(test_data, FLAGS.pad_seq_len)
+    x_test, y_test = dh.pad_data(test_data, FLAGS.pad_seq_len)
     y_test_bind = test_data.labels_bind
 
     # Build vocabulary
-    VOCAB_SIZE = data_helpers.load_vocab_size(FLAGS.embedding_dim)
-    pretrained_word2vec_matrix = data_helpers.load_word2vec_matrix(VOCAB_SIZE, FLAGS.embedding_dim)
+    VOCAB_SIZE = dh.load_vocab_size(FLAGS.embedding_dim)
+    pretrained_word2vec_matrix = dh.load_word2vec_matrix(VOCAB_SIZE, FLAGS.embedding_dim)
 
     # Load rnn model
     logger.info("✔ Loading model...")
@@ -110,8 +111,16 @@ def test_rnn():
             # Tensors we want to evaluate
             logits = graph.get_operation_by_name("output/logits").outputs[0]
 
+            # Split the output nodes name by '|' if you have several output nodes
+            output_node_names = 'output/logits'
+
+            # Save the .pb model file
+            output_graph_def = tf.graph_util.convert_variables_to_constants(sess, sess.graph_def,
+                                                                            output_node_names.split("|"))
+            tf.train.write_graph(output_graph_def, 'graph', 'graph-rnn-{0}.pb'.format(MODEL), as_text=False)
+
             # Generate batches for one epoch
-            batches = data_helpers.batch_iter(list(zip(x_test, y_test, y_test_bind)),
+            batches = dh.batch_iter(list(zip(x_test, y_test, y_test_bind)),
                                               FLAGS.batch_size, 1, shuffle=False)
 
             # Collect the predictions here
@@ -126,15 +135,15 @@ def test_rnn():
                 batch_logits = sess.run(logits, feed_dict)
 
                 if FLAGS.use_classbind_or_not == 'Y':
-                    predicted_labels = data_helpers.get_label_using_logits_and_classbind(
+                    predicted_labels = dh.get_label_using_logits_and_classbind(
                         batch_logits, y_batch_test_bind, top_number=FLAGS.top_num)
                 if FLAGS.use_classbind_or_not == 'N':
-                    predicted_labels = data_helpers.get_label_using_logits(batch_logits, top_number=FLAGS.top_num)
+                    predicted_labels = dh.get_label_using_logits(batch_logits, top_number=FLAGS.top_num)
 
                 all_predicitons = np.append(all_predicitons, predicted_labels)
                 cur_rec, cur_acc = 0.0, 0.0
                 for index, predicted_label in enumerate(predicted_labels):
-                    rec_inc, acc_inc = data_helpers.cal_rec_and_acc(predicted_label, y_batch_test[index])
+                    rec_inc, acc_inc = dh.cal_rec_and_acc(predicted_label, y_batch_test[index])
                     cur_rec, cur_acc = cur_rec + rec_inc, cur_acc + acc_inc
 
                 cur_rec = cur_rec / len(y_batch_test)
