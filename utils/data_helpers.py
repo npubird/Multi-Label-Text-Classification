@@ -373,6 +373,3 @@ def batch_iter(data, batch_size, num_epochs, shuffle=True):
             start_index = batch_num * batch_size
             end_index = min((batch_num + 1) * batch_size, data_size)
             yield shuffled_data[start_index:end_index]
-
-vocab_size = load_vocab_size(100)
-create_metadata_file(vocab_size, 100)
