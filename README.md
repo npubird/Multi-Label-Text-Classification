@@ -38,7 +38,9 @@ Research data may attract copyright protection under China law. Thus, there is o
 
 ## Pre-trained Word Vectors
 
-Use `gensim` package to pre-train my data.
+- Use `gensim` package to pre-train data.
+- Use `glove` tools to pre-train data.
+- Even can use a **fasttext** network to pre-train data.
 
 ## Network Structure
 
