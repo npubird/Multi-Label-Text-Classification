@@ -52,6 +52,13 @@ References:
 
 ---
 
+### TextANN
+
+![]()
+
+---
+
+
 ### TextCNN
 
 ![]()
@@ -65,6 +72,8 @@ References:
 
 ### TextRNN
 
+**Warning: Not finished yet 🤪!**
+
 ![]()
 
 References:
@@ -75,6 +84,8 @@ References:
 
 ### TextRCNN
 
+**Warning: Not finished yet 🤪!**
+
 ![]()
 
 References:
@@ -84,6 +95,8 @@ References:
 ---
 
 ### TextHAN
+
+**Warning: Not finished yet 🤪!**
 
 ![]()
 
