@@ -1,6 +1,6 @@
 # Deep Learning for Multi-Label Text Classification
 
-This project is my research group project, and it is also a study of TensorFlow, Deep Learning(CNN, RNN, LSTM, etc.).
+This project is my research group project, and it is also a study of TensorFlow, Deep Learning(Fasttext, CNN, LSTM, RCNN, etc.).
 
 The main objective of the project is to solve the multi-label text classification problem based on Convolutional Neural Networks. Thus, the format of the data label is like [0, 1, 0, ..., 1, 1] according to the characteristics of such problem.
 
@@ -35,8 +35,15 @@ Research data may attract copyright protection under China law. Thus, there is o
 3. Add other useful data preprocess functions in `data_helpers.py`.
 4. Use `logging` for helping recording the whole info(including parameters display, model training info, etc.).
 
+## Data Preprocessing
 
-## Pre-trained Word Vectors
+Depends on what your data and task are.
+
+### Text Segment
+
+You can use `jieba` package if you are going to deal with the chinese text data.
+
+### Pre-trained Word Vectors
 
 - Use `gensim` package to pre-train data.
 - Use `glove` tools to pre-train data.
