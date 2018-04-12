@@ -218,13 +218,17 @@ class TextRNN(object):
         # Highway Layer
         self.highway = highway(self.fc_out, self.fc_out.get_shape()[1], num_layers=1, bias=0, scope="Highway")
 
+        # Add dropout
+        with tf.name_scope("dropout"):
+            self.h_drop = tf.nn.dropout(self.highway, self.dropout_keep_prob)
+
         # Final scores and predictions
         with tf.name_scope("output"):
             W = tf.Variable(tf.truncated_normal(shape=[fc_hidden_size, num_classes], stddev=0.1), name="W")
             b = tf.Variable(tf.constant(0.1, shape=[num_classes]), name="b")
             l2_loss += tf.nn.l2_loss(W)
             l2_loss += tf.nn.l2_loss(b)
-            self.logits = tf.nn.xw_plus_b(self.highway, W, b, name="logits")
+            self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="logits")
 
         # Calculate mean cross-entropy loss
         with tf.name_scope("loss"):

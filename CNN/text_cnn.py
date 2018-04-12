@@ -142,7 +142,7 @@ class TextCNN(object):
 
         # Add dropout
         with tf.name_scope("dropout"):
-            self.fc_drop = tf.nn.dropout(self.highway, self.dropout_keep_prob)
+            self.h_drop = tf.nn.dropout(self.highway, self.dropout_keep_prob)
 
         # Final scores and predictions
         with tf.name_scope("output"):
@@ -150,7 +150,7 @@ class TextCNN(object):
             b = tf.Variable(tf.constant(0.1, shape=[num_classes]), dtype=tf.float32, name="b")
             l2_loss += tf.nn.l2_loss(W)
             l2_loss += tf.nn.l2_loss(b)
-            self.logits = tf.nn.xw_plus_b(self.fc_drop, W, b, name="logits")
+            self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="logits")
 
         # Calculate mean cross-entropy loss
         with tf.name_scope("loss"):

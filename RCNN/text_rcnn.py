@@ -154,13 +154,16 @@ class TextRCNN(object):
         # Stack list to a tensor
         self.output_rnn = tf.stack(output_list, axis=1)
 
-
         # Maxpooling over the outputs
         self.output_pooling = tf.reduce_max(self.output_rnn, axis=1)  # [None, embedding_size*3]
 
+        # Highway Layer
+        self.highway = highway(self.output_pooling, self.output_pooling.get_shape()[1],
+                               num_layers=1, bias=0, scope="Highway")
+
         # Add dropout
         with tf.name_scope("dropout"):
-            self.h_drop = tf.nn.dropout(self.output_pooling, self.dropout_keep_prob)
+            self.h_drop = tf.nn.dropout(self.highway, self.dropout_keep_prob)
 
         # Final scores and predictions
         with tf.name_scope("output"):
