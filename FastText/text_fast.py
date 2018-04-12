@@ -2,14 +2,13 @@
 __author__ = 'Randolph'
 
 import tensorflow as tf
-from tensorflow.contrib.layers import batch_norm
 
 
 class TextFAST(object):
     """A FASTTEXT for text classification."""
 
     def __init__(
-            self, sequence_length, num_classes, vocab_size, fc_hidden_size, embedding_size,
+            self, sequence_length, num_classes, vocab_size, embedding_size,
             embedding_type, l2_reg_lambda=0.0, pretrained_embedding=None):
 
         # Placeholders for input, output and dropout
@@ -42,25 +41,13 @@ class TextFAST(object):
         # Average Vectors
         self.embedded_sentence_average = tf.reduce_mean(self.embedded_sentence, axis=1)  # [batch_size, embedding_size]
 
-        # Fully Connected Layer
-        with tf.name_scope("fc"):
-            W = tf.Variable(tf.truncated_normal(shape=[embedding_size, fc_hidden_size], stddev=0.1), name="W")
-            b = tf.Variable(tf.constant(0.1, shape=[fc_hidden_size]), dtype=tf.float32, name="b")
-            self.fc = tf.nn.xw_plus_b(self.embedded_sentence_average, W, b)
-
-            # Batch Normalization Layer
-            self.fc_bn = batch_norm(self.fc, is_training=self.is_training)
-
-            # Apply nonlinearity
-            self.fc_out = tf.nn.relu(self.fc_bn, name="relu")
-
         # Add dropout
         with tf.name_scope("dropout"):
-            self.fc_drop = tf.nn.dropout(self.fc_out, self.dropout_keep_prob)
+            self.fc_drop = tf.nn.dropout(self.embedded_sentence_average, self.dropout_keep_prob)
 
         # Final scores and predictions
         with tf.name_scope("output"):
-            W = tf.Variable(tf.truncated_normal(shape=[fc_hidden_size, num_classes], stddev=0.1), name="W")
+            W = tf.Variable(tf.truncated_normal(shape=[embedding_size, num_classes], stddev=0.1), name="W")
             b = tf.Variable(tf.constant(0.1, shape=[num_classes]), dtype=tf.float32, name="b")
             l2_loss += tf.nn.l2_loss(W)
             l2_loss += tf.nn.l2_loss(b)

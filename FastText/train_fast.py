@@ -52,7 +52,6 @@ tf.flags.DEFINE_float("learning_rate", 0.001, "The learning rate (default: 0.001
 tf.flags.DEFINE_integer("pad_seq_len", 150, "Recommended padding Sequence length of data (depends on the data)")
 tf.flags.DEFINE_integer("embedding_dim", 100, "Dimensionality of character embedding (default: 128)")
 tf.flags.DEFINE_integer("embedding_type", 1, "The embedding type (default: 1)")
-tf.flags.DEFINE_integer("fc_hidden_size", 1024, "Hidden size for fully connected layer (default: 1024)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 0.0)")
 tf.flags.DEFINE_integer("num_classes", 367, "Number of labels (depends on the task)")
@@ -60,7 +59,7 @@ tf.flags.DEFINE_integer("top_num", 1, "Number of top K prediction classes (defau
 
 # Training Parameters
 tf.flags.DEFINE_integer("batch_size", 512, "Batch Size (default: 64)")
-tf.flags.DEFINE_integer("num_epochs", 100, "Number of training epochs (default: 100)")
+tf.flags.DEFINE_integer("num_epochs", 200, "Number of training epochs (default: 200)")
 tf.flags.DEFINE_integer("evaluate_every", 5000, "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_integer("decay_steps", 5000, "how many steps before decay learning rate.")
 tf.flags.DEFINE_float("decay_rate", 0.5, "Rate of decay for learning rate.")
@@ -118,7 +117,6 @@ def train_fasttext():
                 sequence_length=FLAGS.pad_seq_len,
                 num_classes=FLAGS.num_classes,
                 vocab_size=VOCAB_SIZE,
-                fc_hidden_size=FLAGS.fc_hidden_size,
                 embedding_size=FLAGS.embedding_dim,
                 embedding_type=FLAGS.embedding_type,
                 l2_reg_lambda=FLAGS.l2_reg_lambda,
@@ -128,9 +126,10 @@ def train_fasttext():
             # learning_rate = tf.train.exponential_decay(learning_rate=FLAGS.learning_rate, global_step=cnn.global_step,
             #                                            decay_steps=FLAGS.decay_steps, decay_rate=FLAGS.decay_rate,
             #                                            staircase=True)
-            optimizer = tf.train.AdamOptimizer(FLAGS.learning_rate)
-            grads_and_vars = optimizer.compute_gradients(fasttext.loss)
-            train_op = optimizer.apply_gradients(grads_and_vars, global_step=fasttext.global_step, name="train_op")
+            with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
+                optimizer = tf.train.AdamOptimizer(FLAGS.learning_rate)
+                grads_and_vars = optimizer.compute_gradients(fasttext.loss)
+                train_op = optimizer.apply_gradients(grads_and_vars, global_step=fasttext.global_step, name="train_op")
 
             # Keep track of gradient values and sparsity (optional)
             grad_summaries = []
