@@ -48,7 +48,7 @@ tf.flags.DEFINE_integer("num_filters", 256, "Number of filters per filter size (
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 0.0)")
 tf.flags.DEFINE_integer("num_classes", 367, "Number of labels (depends on the task)")
-tf.flags.DEFINE_integer("top_num", 2, "Number of top K prediction classes (default: 3)")
+tf.flags.DEFINE_integer("top_num", 3, "Number of top K prediction classes (default: 3)")
 
 # Test Parameters
 tf.flags.DEFINE_integer("batch_size", 512, "Batch Size (default: 64)")
