@@ -104,7 +104,7 @@ def test_fasttext():
             # input_y = graph.get_operation_by_name("input_y").outputs[0]
             dropout_keep_prob = graph.get_operation_by_name("dropout_keep_prob").outputs[0]
 
-            # pre-trained_word2vec
+            # pre-trained word2vec
             pretrained_embedding = graph.get_operation_by_name("embedding/embedding").outputs[0]
 
             # Tensors we want to evaluate
