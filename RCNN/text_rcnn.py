@@ -1,14 +1,85 @@
 # -*- coding:utf-8 -*-
+__author__ = 'Randolph'
 
 import tensorflow as tf
 import copy
 
 
+def linear(input_, output_size, scope=None):
+    """
+    Linear map: output[k] = sum_i(Matrix[k, i] * args[i] ) + Bias[k]
+    Args:
+        args: a tensor or a list of 2D, batch x n, Tensors.
+        output_size: int, second dimension of W[i].
+        scope: VariableScope for the created subgraph; defaults to "Linear".
+    Returns:
+        A 2D Tensor with shape [batch x output_size] equal to
+        sum_i(args[i] * W[i]), where W[i]s are newly created matrices.
+    Raises:
+        ValueError: if some of the arguments has unspecified or wrong shape.
+    """
+
+    shape = input_.get_shape().as_list()
+    if len(shape) != 2:
+        raise ValueError("Linear is expecting 2D arguments: {0}".format(str(shape)))
+    if not shape[1]:
+        raise ValueError("Linear expects shape[1] of arguments: {0}".format(str(shape)))
+    input_size = shape[1]
+
+    # Now the computation.
+    with tf.variable_scope(scope or "SimpleLinear"):
+        W = tf.get_variable("W", [output_size, input_size], dtype=input_.dtype)
+        b = tf.get_variable("b", [output_size], dtype=input_.dtype)
+
+    return tf.nn.xw_plus_b(input_, tf.transpose(W), b)
+
+
+def highway(input_, size, num_layers=1, bias=-2.0, f=tf.nn.relu, scope='Highway'):
+    """
+    Highway Network (cf. http://arxiv.org/abs/1505.00387).
+    t = sigmoid(Wy + b)
+    z = t * g(Wy + b) + (1 - t) * y
+    where g is nonlinearity, t is transform gate, and (1 - t) is carry gate.
+    """
+
+    with tf.variable_scope(scope):
+        for idx in range(num_layers):
+            g = f(linear(input_, size, scope=('highway_lin_{0}'.format(idx))))
+            t = tf.sigmoid(linear(input_, size, scope=('highway_gate_{0}'.format(idx))) + bias)
+            output = t * g + (1. - t) * input_
+            input_ = output
+
+    return output
+
+
+def get_context_left(self, context_left, embedding_previous):
+    """
+    :param context_left:
+    :param embedding_previous:
+    :return: output:[None, embedding_size]
+    """
+    left_c = tf.matmul(context_left, self.W_l)  # context_left:[batch_size, embedding_size];W_l:[embedding_size, embedding_size]
+    left_e = tf.matmul(embedding_previous, self.W_sl)   # embedding_previous;[batch_size, embedding_size]
+    left_h = left_c + left_e
+    context_left = tf.nn.tanh(left_h)
+    return context_left
+
+
+def get_context_right(self, context_right, embedding_afterward):
+    """
+    :param context_right:
+    :param embedding_afterward:
+    :return: output:[None,embed_size]
+    """
+    right_c = tf.matmul(context_right, self.W_r)  # context_right:[batch_size, embedding_size];W_r:[embedding_size, embedding_size]
+    right_e = tf.matmul(embedding_afterward, self.W_sr)   # embedding_afterward;[batch_size, embedding_size]
+    right_h = right_c + right_e
+    context_right = tf.nn.tanh(right_h)
+    return context_right
+
+
 class TextRCNN(object):
-    """
-    A RCNN for text classification.
-    Uses an embedding layer, followed by a bi-lstm, max-pooling and softmax layer.
-    """
+    """A RCNN for text classification."""
 
     def __init__(
             self, sequence_length, num_classes, batch_size, vocab_size, hidden_size,
@@ -18,27 +89,28 @@ class TextRCNN(object):
         self.input_x = tf.placeholder(tf.int32, [None, sequence_length], name="input_x")
         self.input_y = tf.placeholder(tf.float32, [None, num_classes], name="input_y")
         self.dropout_keep_prob = tf.placeholder(tf.float32, name="dropout_keep_prob")
+        self.is_training = tf.placeholder(tf.bool)
 
-        self.global_step = tf.Variable(0, trainable=False, name="global_Step")
-        self.initializer = tf.random_normal_initializer(stddev=0.1)
+        self.global_step = tf.Variable(0, trainable=False, name="Global_Step")
 
         # Keeping track of l2 regularization loss (optional)
         l2_loss = tf.constant(0.0)
 
         # Embedding layer
         with tf.device('/cpu:0'), tf.name_scope("embedding"):
-            # 默认采用的是随机生成正态分布的词向量。
-            # 也可以是通过自己的语料库训练而得到的词向量。
+            # Use random generated the word vector by default
+            # Can also be obtained through our own word vectors trained by our corpus
             if pretrained_embedding is None:
-                self.W = tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0), name="W")
+                self.embedding = tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0),
+                                             name="embedding")
             else:
                 if embedding_type == 0:
-                    self.W = tf.constant(pretrained_embedding, name="W")
-                    self.W = tf.cast(self.W, tf.float32)
+                    self.embedding = tf.constant(pretrained_embedding, name="embedding")
+                    self.embedding = tf.cast(self.embedding, tf.float32)
                 if embedding_type == 1:
-                    self.W = tf.Variable(pretrained_embedding, name="W", trainable=True)
-                    self.W = tf.cast(self.W, tf.float32)
-            self.embedded_chars = tf.nn.embedding_lookup(self.W, self.input_x)  # [None, sentence_length, embedding_size]
+                    self.embedding = tf.Variable(pretrained_embedding, name="embedding", trainable=True)
+                    self.embedding = tf.cast(self.embedding, tf.float32)
+            self.embedded_chars = tf.nn.embedding_lookup(self.embedding, self.input_x)  # [None, sentence_length, embedding_size]
             self.embedded_chars_split = tf.split(self.embedded_chars, sequence_length, axis=1)  # sentence_length 个 [None, 1, embedding_size]
             self.embedded_chars_squeezed = [tf.squeeze(x, axis=1) for x in self.embedded_chars_split]   # sentence_length 个 [None, embedding_size]
 
@@ -90,7 +162,7 @@ class TextRCNN(object):
         with tf.name_scope("dropout"):
             self.h_drop = tf.nn.dropout(self.output_pooling, self.dropout_keep_prob)
 
-        # Final (unnormalized) scores and predictions
+        # Final scores and predictions
         with tf.name_scope("output"):
             W = tf.get_variable(
                 "W",
@@ -101,32 +173,8 @@ class TextRCNN(object):
             l2_loss += tf.nn.l2_loss(b)
             self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="logits")
 
-        # CalculateMean cross-entropy loss
+        # Calculate mean cross-entropy loss
         with tf.name_scope("loss"):
             losses = tf.nn.sigmoid_cross_entropy_with_logits(labels=self.input_y, logits=self.logits)
             losses = tf.reduce_sum(losses, axis=1)
             self.loss = tf.reduce_mean(losses) + l2_reg_lambda * l2_loss
-
-    def get_context_left(self, context_left, embedding_previous):
-        """
-        :param context_left:
-        :param embedding_previous:
-        :return: output:[None, embedding_size]
-        """
-        left_c = tf.matmul(context_left, self.W_l)  # context_left:[batch_size, embedding_size];W_l:[embedding_size, embedding_size]
-        left_e = tf.matmul(embedding_previous, self.W_sl)   # embedding_previous;[batch_size, embedding_size]
-        left_h = left_c + left_e
-        context_left = tf.nn.tanh(left_h)
-        return context_left
-
-    def get_context_right(self, context_right, embedding_afterward):
-        """
-        :param context_right:
-        :param embedding_afterward:
-        :return: output:[None,embed_size]
-        """
-        right_c = tf.matmul(context_right, self.W_r)  # context_right:[batch_size, embedding_size];W_r:[embedding_size, embedding_size]
-        right_e = tf.matmul(embedding_afterward, self.W_sr)   # embedding_afterward;[batch_size, embedding_size]
-        right_h = right_c + right_e
-        context_right = tf.nn.tanh(right_h)
-        return context_right
