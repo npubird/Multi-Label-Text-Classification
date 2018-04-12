@@ -2,7 +2,6 @@
 __author__ = 'Randolph'
 
 import tensorflow as tf
-from tensorflow.contrib.layers import batch_norm
 
 
 def linear(input_, output_size, scope=None):
@@ -104,7 +103,8 @@ class TextCNN(object):
                     name="conv")
 
                 # Batch Normalization Layer
-                conv_bn = batch_norm(tf.nn.bias_add(conv, b), is_training=self.is_training)
+                # Use bias or not? Confused...
+                conv_bn = tf.layers.batch_normalization(tf.nn.bias_add(conv, b), training=self.is_training)
 
                 # Apply nonlinearity
                 conv_out = tf.nn.relu(conv_bn, name="relu")
@@ -132,7 +132,7 @@ class TextCNN(object):
             self.fc = tf.nn.xw_plus_b(self.pool_flat, W, b)
 
             # Batch Normalization Layer
-            self.fc_bn = batch_norm(self.fc, is_training=self.is_training)
+            self.fc_bn = tf.layers.batch_normalization(self.fc, training=self.is_training)
 
             # Apply nonlinearity
             self.fc_out = tf.nn.relu(self.fc_bn, name="relu")

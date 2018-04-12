@@ -59,7 +59,7 @@ tf.flags.DEFINE_integer("top_num", 1, "Number of top K prediction classes (defau
 
 # Training Parameters
 tf.flags.DEFINE_integer("batch_size", 512, "Batch Size (default: 64)")
-tf.flags.DEFINE_integer("num_epochs", 100, "Number of training epochs (default: 100)")
+tf.flags.DEFINE_integer("num_epochs", 200, "Number of training epochs (default: 200)")
 tf.flags.DEFINE_integer("evaluate_every", 5000, "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_integer("decay_steps", 5000, "how many steps before decay learning rate.")
 tf.flags.DEFINE_float("decay_rate", 0.5, "Rate of decay for learning rate.")
@@ -128,9 +128,10 @@ def train_rnn():
             # learning_rate = tf.train.exponential_decay(learning_rate=FLAGS.learning_rate, global_step=cnn.global_step,
             #                                            decay_steps=FLAGS.decay_steps, decay_rate=FLAGS.decay_rate,
             #                                            staircase=True)
-            optimizer = tf.train.AdamOptimizer(FLAGS.learning_rate)
-            grads_and_vars = optimizer.compute_gradients(rnn.loss)
-            train_op = optimizer.apply_gradients(grads_and_vars, global_step=rnn.global_step, name="train_op")
+            with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
+                optimizer = tf.train.AdamOptimizer(FLAGS.learning_rate)
+                grads_and_vars = optimizer.compute_gradients(rnn.loss)
+                train_op = optimizer.apply_gradients(grads_and_vars, global_step=rnn.global_step, name="train_op")
 
             # Keep track of gradient values and sparsity (optional)
             grad_summaries = []

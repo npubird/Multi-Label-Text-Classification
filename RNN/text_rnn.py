@@ -210,7 +210,7 @@ class TextRNN(object):
             self.fc = tf.nn.xw_plus_b(self.lstm_out, W, b)
 
             # Batch Normalization Layer
-            self.fc_bn = batch_norm(self.fc, is_training=self.is_training)
+            self.fc_bn = tf.layers.batch_normalization(self.fc, training=self.is_training)
 
             # Apply nonlinearity
             self.fc_out = tf.nn.relu(self.fc_bn, name="relu")
