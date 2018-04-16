@@ -104,8 +104,8 @@ def test_cnn():
             # Get the placeholders from the graph by name
             input_x = graph.get_operation_by_name("input_x").outputs[0]
             # input_y = graph.get_operation_by_name("input_y").outputs[0]
-            is_training = graph.get_operation_by_name("is_training").outputs[0]
             dropout_keep_prob = graph.get_operation_by_name("dropout_keep_prob").outputs[0]
+            is_training = graph.get_operation_by_name("is_training").outputs[0]
 
             # pre-trained word2vec
             pretrained_embedding = graph.get_operation_by_name("embedding/embedding").outputs[0]
