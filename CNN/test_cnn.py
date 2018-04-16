@@ -1,6 +1,7 @@
 # -*- coding:utf-8 -*-
 __author__ = 'Randolph'
 
+import os
 import sys
 import time
 import numpy as np
@@ -29,7 +30,7 @@ TRAININGSET_DIR = '../data/Train.json'
 VALIDATIONSET_DIR = '../data/Validation_bind.json'
 TESTSET_DIR = '../data/Test.json'
 MODEL_DIR = 'runs/' + MODEL + '/checkpoints/'
-SAVE_FILE = 'predictions.txt'
+SAVE_DIR = 'results/' + MODEL
 
 # Data Parameters
 tf.flags.DEFINE_string("training_data_file", TRAININGSET_DIR, "Data source for the training data.")
@@ -102,8 +103,8 @@ def test_cnn():
 
             # Get the placeholders from the graph by name
             input_x = graph.get_operation_by_name("input_x").outputs[0]
-
             # input_y = graph.get_operation_by_name("input_y").outputs[0]
+            is_training = graph.get_operation_by_name("is_training").outputs[0]
             dropout_keep_prob = graph.get_operation_by_name("dropout_keep_prob").outputs[0]
 
             # pre-trained word2vec
@@ -131,7 +132,8 @@ def test_cnn():
                 x_batch_test, y_batch_test, y_batch_test_bind = zip(*batch_test)
                 feed_dict = {
                     input_x: x_batch_test,
-                    dropout_keep_prob: 1.0
+                    dropout_keep_prob: 1.0,
+                    is_training: False
                 }
                 batch_logits = sess.run(logits, feed_dict)
 
@@ -156,7 +158,8 @@ def test_cnn():
             eval_rec = float(eval_rec / eval_counter)
             eval_acc = float(eval_acc / eval_counter)
             logger.info("☛ Recall {0:g}, Accuracy {1:g}".format(eval_rec, eval_acc))
-            np.savetxt(SAVE_FILE, list(zip(all_predicitons)), fmt='%s')
+            os.makedirs(SAVE_DIR)
+            np.savetxt(SAVE_DIR + '/predictions.txt', list(zip(all_predicitons)), fmt='%s')
 
     logger.info("✔ Done.")
 

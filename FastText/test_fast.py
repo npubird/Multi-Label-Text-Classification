@@ -1,6 +1,7 @@
 # -*- coding:utf-8 -*-
 __author__ = 'Randolph'
 
+import os
 import sys
 import time
 import numpy as np
@@ -29,7 +30,7 @@ TRAININGSET_DIR = '../data/Train.json'
 VALIDATIONSET_DIR = '../data/Validation_bind.json'
 TESTSET_DIR = '../data/Test.json'
 MODEL_DIR = 'runs/' + MODEL + '/checkpoints/'
-SAVE_FILE = 'predictions.txt'
+SAVE_DIR = 'results/' + MODEL
 
 # Data Parameters
 tf.flags.DEFINE_string("training_data_file", TRAININGSET_DIR, "Data source for the training data.")
@@ -42,7 +43,6 @@ tf.flags.DEFINE_string("use_classbind_or_not", CLASS_BIND, "Use the class bind i
 tf.flags.DEFINE_integer("pad_seq_len", 150, "Recommended padding Sequence length of data (depends on the data)")
 tf.flags.DEFINE_integer("embedding_dim", 100, "Dimensionality of character embedding (default: 128)")
 tf.flags.DEFINE_integer("embedding_type", 1, "The embedding type (default: 1)")
-tf.flags.DEFINE_integer("fc_hidden_size", 1024, "Hidden size for fully connected layer (default: 1024)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 0.0)")
 tf.flags.DEFINE_integer("num_classes", 367, "Number of labels (depends on the task)")
@@ -100,8 +100,8 @@ def test_fasttext():
 
             # Get the placeholders from the graph by name
             input_x = graph.get_operation_by_name("input_x").outputs[0]
-
             # input_y = graph.get_operation_by_name("input_y").outputs[0]
+            is_training = graph.get_operation_by_name("is_training").outputs[0]
             dropout_keep_prob = graph.get_operation_by_name("dropout_keep_prob").outputs[0]
 
             # pre-trained word2vec
@@ -129,7 +129,8 @@ def test_fasttext():
                 x_batch_test, y_batch_test, y_batch_test_bind = zip(*batch_test)
                 feed_dict = {
                     input_x: x_batch_test,
-                    dropout_keep_prob: 1.0
+                    dropout_keep_prob: 1.0,
+                    is_training: False
                 }
                 batch_logits = sess.run(logits, feed_dict)
 
@@ -154,7 +155,8 @@ def test_fasttext():
             eval_rec = float(eval_rec / eval_counter)
             eval_acc = float(eval_acc / eval_counter)
             logger.info("☛ Recall {0:g}, Accuracy {1:g}".format(eval_rec, eval_acc))
-            np.savetxt(SAVE_FILE, list(zip(all_predicitons)), fmt='%s')
+            os.makedirs(SAVE_DIR)
+            np.savetxt(SAVE_DIR + '/predictions.txt', list(zip(all_predicitons)), fmt='%s')
 
     logger.info("✔ Done.")
 
