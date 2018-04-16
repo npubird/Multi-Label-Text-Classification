@@ -30,8 +30,8 @@ Research data may attract copyright protection under China law. Thus, there is o
 3. Add **parent label bind** information to limit the prediction to improve the model.
 
 ### Code part
-1. Can choose to **train** the model directly or **restore** the model from checkpoint in `train_cnn.py`.  
-2. Add `test_cnn.py`, the **model test code**. 
+1. Can choose to **train** the model directly or **restore** the model from checkpoint in `train_cnn.py`.
+2. Add `test_cnn.py`, the **model test code**.
 3. Add other useful data preprocess functions in `data_helpers.py`.
 4. Use `logging` for helping recording the whole info(including parameters display, model training info, etc.).
 
