@@ -62,7 +62,7 @@ class TextCNN(object):
         self.input_x = tf.placeholder(tf.int32, [None, sequence_length], name="input_x")
         self.input_y = tf.placeholder(tf.float32, [None, num_classes], name="input_y")
         self.dropout_keep_prob = tf.placeholder(tf.float32, name="dropout_keep_prob")
-        self.is_training = tf.placeholder(tf.bool)
+        self.is_training = tf.placeholder(tf.bool, name="is_training")
 
         self.global_step = tf.Variable(0, trainable=False, name="Global_Step")
 
@@ -102,9 +102,11 @@ class TextCNN(object):
                     padding="VALID",
                     name="conv")
 
+                conv = tf.nn.bias_add(conv, b)
+
                 # Batch Normalization Layer
                 # Use bias or not? Confused...
-                conv_bn = tf.layers.batch_normalization(tf.nn.bias_add(conv, b), training=self.is_training)
+                conv_bn = tf.layers.batch_normalization(conv, training=self.is_training)
 
                 # Apply nonlinearity
                 conv_out = tf.nn.relu(conv_bn, name="relu")
@@ -129,7 +131,8 @@ class TextCNN(object):
         with tf.name_scope("fc"):
             W = tf.Variable(tf.truncated_normal(shape=[num_filters_total, fc_hidden_size], stddev=0.1), name="W")
             b = tf.Variable(tf.constant(0.1, shape=[fc_hidden_size]), dtype=tf.float32, name="b")
-            self.fc = tf.nn.xw_plus_b(self.pool_flat, W, b)
+            self.fc = tf.matmul(self.pool_flat, W)
+            self.fc = tf.nn.bias_add(self.fc, b)
 
             # Batch Normalization Layer
             self.fc_bn = tf.layers.batch_normalization(self.fc, training=self.is_training)
