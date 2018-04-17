@@ -92,8 +92,7 @@ class TextANN(object):
         with tf.name_scope("fc"):
             W = tf.Variable(tf.truncated_normal(shape=[embedding_size, fc_hidden_size], stddev=0.1), name="W")
             b = tf.Variable(tf.constant(0.1, shape=[fc_hidden_size]), dtype=tf.float32, name="b")
-            self.fc = tf.matmul(self.embedded_sentence_average, W)
-            self.fc = tf.nn.bias_add(self.fc, b)
+            self.fc = tf.nn.xw_plus_b(self.embedded_sentence_average, W, b)
 
             # Batch Normalization Layer
             self.fc_bn = tf.layers.batch_normalization(self.fc, training=self.is_training)

@@ -131,8 +131,7 @@ class TextCNN(object):
         with tf.name_scope("fc"):
             W = tf.Variable(tf.truncated_normal(shape=[num_filters_total, fc_hidden_size], stddev=0.1), name="W")
             b = tf.Variable(tf.constant(0.1, shape=[fc_hidden_size]), dtype=tf.float32, name="b")
-            self.fc = tf.matmul(self.pool_flat, W)
-            self.fc = tf.nn.bias_add(self.fc, b)
+            self.fc = tf.nn.xw_plus_b(self.pool_flat, W, b)
 
             # Batch Normalization Layer
             self.fc_bn = tf.layers.batch_normalization(self.fc, training=self.is_training)
