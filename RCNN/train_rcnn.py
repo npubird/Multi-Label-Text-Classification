@@ -6,6 +6,7 @@ import sys
 import time
 import datetime
 import logging
+import numpy as np
 import tensorflow as tf
 
 from utils import data_helpers as dh
@@ -206,6 +207,30 @@ def train_rcnn():
 
             current_step = sess.run(rcnn.global_step)
 
+            def batch_iter(data, batch_size, num_epochs, shuffle=True):
+                """
+                The function <batch_iter> in data_helpers.py will create the data batch
+                which has not exactly batch size since that we have to overwrite the function for rcnn
+                Because rcnn need the all batches has the exact batch size otherwise will raise error
+                """
+                data = np.array(data)
+                data_size = len(data)
+                # Just the diff in var num_batches_per_epoch
+                # Do not plus one in there
+                # Because we need to drop the last batch in case it has not exactly batch_size
+                num_batches_per_epoch = int((data_size - 1) / batch_size)
+                for epoch in range(num_epochs):
+                    # Shuffle the data at each epoch
+                    if shuffle:
+                        shuffle_indices = np.random.permutation(np.arange(data_size))
+                        shuffled_data = data[shuffle_indices]
+                    else:
+                        shuffled_data = data
+                    for batch_num in range(num_batches_per_epoch):
+                        start_index = batch_num * batch_size
+                        end_index = min((batch_num + 1) * batch_size, data_size)
+                        yield shuffled_data[start_index:end_index]
+
             def train_step(x_batch, y_batch):
                 """A single training step"""
                 feed_dict = {
@@ -222,8 +247,8 @@ def train_rcnn():
 
             def validation_step(x_validation, y_validation, y_validation_bind, writer=None):
                 """Evaluates model on a validation set"""
-                batches_validation = dh.batch_iter(
-                    list(zip(x_validation, y_validation, y_validation_bind)), 8 * FLAGS.batch_size, FLAGS.num_epochs)
+                batches_validation = batch_iter(
+                    list(zip(x_validation, y_validation, y_validation_bind)), FLAGS.batch_size, FLAGS.num_epochs)
                 eval_loss, eval_rec, eval_acc, eval_counter = 0.0, 0.0, 0.0, 0
                 for batch_validation in batches_validation:
                     x_batch_validation, y_batch_validation, y_batch_validation_bind = zip(*batch_validation)
@@ -264,7 +289,7 @@ def train_rcnn():
                 return eval_loss, eval_rec, eval_acc
 
             # Generate batches
-            batches_train = dh.batch_iter(
+            batches_train = batch_iter(
                 list(zip(x_train, y_train)), FLAGS.batch_size, FLAGS.num_epochs)
 
             # Training loop. For each batch...

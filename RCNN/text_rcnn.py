@@ -52,27 +52,27 @@ def highway(input_, size, num_layers=1, bias=-2.0, f=tf.nn.relu, scope='Highway'
     return output
 
 
-def get_context_left(self, context_left, embedding_previous):
+def get_context_left(context_left, embedding_previous, W_l, W_sl):
     """
-    :param context_left:
-    :param embedding_previous:
-    :return: output:[None, embedding_size]
+    :param context_left: [batch_size, embedding_size]
+    :param embedding_previous: [batch_size, embedding_size]
+    :return: output: [None, embedding_size]
     """
-    left_c = tf.matmul(context_left, self.W_l)  # context_left:[batch_size, embedding_size];W_l:[embedding_size, embedding_size]
-    left_e = tf.matmul(embedding_previous, self.W_sl)   # embedding_previous;[batch_size, embedding_size]
+    left_c = tf.matmul(context_left, W_l)
+    left_e = tf.matmul(embedding_previous, W_sl)
     left_h = left_c + left_e
     context_left = tf.nn.tanh(left_h)
     return context_left
 
 
-def get_context_right(self, context_right, embedding_afterward):
+def get_context_right(context_right, embedding_afterward, W_r, W_sr):
     """
-    :param context_right:
-    :param embedding_afterward:
-    :return: output:[None,embed_size]
+    :param context_right: [batch_size, embedding_size]
+    :param embedding_afterward: [batch_size, embedding_size]
+    :return: output: [None,embed_size]
     """
-    right_c = tf.matmul(context_right, self.W_r)  # context_right:[batch_size, embedding_size];W_r:[embedding_size, embedding_size]
-    right_e = tf.matmul(embedding_afterward, self.W_sr)   # embedding_afterward;[batch_size, embedding_size]
+    right_c = tf.matmul(context_right, W_r)
+    right_e = tf.matmul(embedding_afterward, W_sr)
     right_h = right_c + right_e
     context_right = tf.nn.tanh(right_h)
     return context_right
@@ -110,44 +110,52 @@ class TextRCNN(object):
                 if embedding_type == 1:
                     self.embedding = tf.Variable(pretrained_embedding, name="embedding", trainable=True)
                     self.embedding = tf.cast(self.embedding, tf.float32)
-            self.embedded_chars = tf.nn.embedding_lookup(self.embedding, self.input_x)  # [None, sentence_length, embedding_size]
-            self.embedded_chars_split = tf.split(self.embedded_chars, sequence_length, axis=1)  # sentence_length 个 [None, 1, embedding_size]
-            self.embedded_chars_squeezed = [tf.squeeze(x, axis=1) for x in self.embedded_chars_split]   # sentence_length 个 [None, embedding_size]
+            self.embedded_sentence = tf.nn.embedding_lookup(self.embedding, self.input_x)  # [None, sentence_length, embedding_size]
+
+        # get splitted list of word embeddings
+        self.embedded_word_split = tf.split(self.embedded_sentence, sequence_length, axis=1)  # sentence_length 个 [None, 1, embedding_size]
+        self.embedded_word_squeezed = [tf.squeeze(x, axis=1) for x in self.embedded_word_split]   # sentence_length 个 [None, embedding_size]
 
         # Get list of context left
-        self.W_l = tf.get_variable("W_l", shape=[embedding_size, embedding_size], initializer=self.initializer)
-        self.W_sl = tf.get_variable("W_sl", shape=[embedding_size, embedding_size], initializer=self.initializer)
-
-        embedding_previous = tf.get_variable("left_side_first_char", shape=[batch_size, embedding_size],
-                                             initializer=self.initializer)
+        embedding_previous = tf.Variable(tf.truncated_normal(shape=[batch_size, embedding_size], stddev=0.1),
+                                         name="left_side_first_word")
         context_left_previous = tf.zeros((batch_size, embedding_size))
+
         context_left_list = []
-        for i, current_embedding_char in enumerate(self.embedded_chars_squeezed):
-            context_left = self.get_context_left(context_left_previous, embedding_previous)  # [None,embedding_size]
-            context_left_list.append(context_left)  # append result to list
-            embedding_previous = current_embedding_char  # assign embedding_previous
-            context_left_previous = context_left  # assign context_left_previous
+        W_l = tf.Variable(tf.truncated_normal(shape=[embedding_size, embedding_size], stddev=0.1), name="W_l")
+        W_sl = tf.Variable(tf.truncated_normal(shape=[embedding_size, embedding_size], stddev=0.1), name="W_sl")
+        for i, current_embedding_word in enumerate(self.embedded_word_squeezed):
+            context_left = get_context_left(context_left_previous, embedding_previous, W_l, W_sl)  # [None, embedding_size]
+            context_left_list.append(context_left)
+            embedding_previous = current_embedding_word
+            context_left_previous = context_left
+
+        # ---------------------------------------------------------------------------
+
+        # Get copy of list of reversed context word embeddings for next step
+        embedded_chars_squeezed_reverse = copy.copy(self.embedded_word_squeezed)
+        embedded_chars_squeezed_reverse.reverse()
 
         # Get list of context right
-        self.W_r = tf.get_variable("W_r", shape=[embedding_size, embedding_size], initializer=self.initializer)
-        self.W_sr = tf.get_variable("W_sr", shape=[embedding_size, embedding_size], initializer=self.initializer)
-
-        self.embedded_chars_squeezed_reverse = copy.copy(self.embedded_chars_squeezed)
-        self.embedded_chars_squeezed_reverse.reverse()
-        embedding_afterward = tf.get_variable("right_side_last_char", shape=[batch_size, embedding_size],
-                                              initializer=self.initializer)
+        embedding_afterward = tf.Variable(tf.truncated_normal(shape=[batch_size, embedding_size], stddev=0.1),
+                                          name="right_side_last_word")
         context_right_afterward = tf.zeros((batch_size, embedding_size))
+
         context_right_list = []
-        for j, current_embedding_char in enumerate(self.embedded_chars_squeezed_reverse):
-            context_right = self.get_context_right(context_right_afterward, embedding_afterward)
+        W_r = tf.Variable(tf.truncated_normal(shape=[embedding_size, embedding_size], stddev=0.1), name="W_r")
+        W_sr = tf.Variable(tf.truncated_normal(shape=[embedding_size, embedding_size], stddev=0.1), name="W_sr")
+        for j, current_embedding_word in enumerate(self.embedded_word_squeezed):
+            context_right = get_context_right(context_right_afterward, embedding_afterward, W_r, W_sr)  # [None, embdedding_size]
             context_right_list.append(context_right)
-            embedding_afterward = current_embedding_char
+            embedding_afterward = current_embedding_word
             context_right_afterward = context_right
+
+        # ---------------------------------------------------------------------------
 
         # Ensemble (left, embedding, right) to output
         output_list = []
-        for index, current_embedding_char in enumerate(self.embedded_chars_squeezed):
-            representation = tf.concat([context_left_list[index], current_embedding_char, context_right_list[index]],
+        for index, current_embedding_word in enumerate(self.embedded_word_squeezed):
+            representation = tf.concat([context_left_list[index], current_embedding_word, context_right_list[index]],
                                        axis=1)
             output_list.append(representation)  # sentence_length 个 [None, embedding_size*3]
 
@@ -167,10 +175,7 @@ class TextRCNN(object):
 
         # Final scores and predictions
         with tf.name_scope("output"):
-            W = tf.get_variable(
-                "W",
-                shape=[hidden_size*3, num_classes],
-                initializer=tf.contrib.layers.xavier_initializer())
+            W = tf.Variable(tf.truncated_normal(shape=[hidden_size*3, num_classes], stddev=0.1), name="W")
             b = tf.Variable(tf.constant(0.1, shape=[num_classes]), name="b")
             l2_loss += tf.nn.l2_loss(W)
             l2_loss += tf.nn.l2_loss(b)
