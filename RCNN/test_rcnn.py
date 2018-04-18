@@ -1,6 +1,7 @@
 # -*- coding:utf-8 -*-
 __author__ = 'Randolph'
 
+import os
 import sys
 import time
 import numpy as np
@@ -29,7 +30,7 @@ TRAININGSET_DIR = '../data/Train.json'
 VALIDATIONSET_DIR = '../data/Validation_bind.json'
 TESTSET_DIR = '../data/Test.json'
 MODEL_DIR = 'runs/' + MODEL + '/checkpoints/'
-SAVE_FILE = 'predictions.txt'
+SAVE_DIR = 'results/' + MODEL
 
 # Data Parameters
 tf.flags.DEFINE_string("training_data_file", TRAININGSET_DIR, "Data source for the training data.")
@@ -60,6 +61,31 @@ FLAGS(sys.argv)
 dilim = '-' * 100
 logger.info('\n'.join([dilim, *['{0:>50}|{1:<50}'.format(attr.upper(), FLAGS.__getattr__(attr))
                                 for attr in sorted(FLAGS.__dict__['__wrapped'])], dilim]))
+
+
+def batch_iter(data, batch_size, num_epochs, shuffle=True):
+    """
+    The function <batch_iter> in data_helpers.py will create the data batch
+    which has not exactly batch size since that we have to overwrite the function for rcnn
+    Because rcnn need the all batches has the exact batch size otherwise will raise error
+    """
+    data = np.array(data)
+    data_size = len(data)
+    # Just the diff in var num_batches_per_epoch
+    # Do not plus one in there
+    # Because we need to drop the last batch in case it has not exactly batch_size
+    num_batches_per_epoch = int((data_size - 1) / batch_size)
+    for epoch in range(num_epochs):
+        # Shuffle the data at each epoch
+        if shuffle:
+            shuffle_indices = np.random.permutation(np.arange(data_size))
+            shuffled_data = data[shuffle_indices]
+        else:
+            shuffled_data = data
+        for batch_num in range(num_batches_per_epoch):
+            start_index = batch_num * batch_size
+            end_index = min((batch_num + 1) * batch_size, data_size)
+            yield shuffled_data[start_index:end_index]
 
 
 def test_rcnn():
@@ -99,9 +125,9 @@ def test_rcnn():
 
             # Get the placeholders from the graph by name
             input_x = graph.get_operation_by_name("input_x").outputs[0]
-
             # input_y = graph.get_operation_by_name("input_y").outputs[0]
             dropout_keep_prob = graph.get_operation_by_name("dropout_keep_prob").outputs[0]
+            is_training = graph.get_operation_by_name("is_training").outputs[0]
 
             # pre-trained word2vec
             pretrained_embedding = graph.get_operation_by_name("embedding/embedding").outputs[0]
@@ -118,8 +144,10 @@ def test_rcnn():
             tf.train.write_graph(output_graph_def, 'graph', 'graph-rcnn-{0}.pb'.format(MODEL), as_text=False)
 
             # Generate batches for one epoch
-            batches = dh.batch_iter(list(zip(x_test, y_test, y_test_bind)),
-                                              FLAGS.batch_size, 1, shuffle=False)
+
+            # Warning: The last batch will be drop so there will be no predictions on the last batch data
+            # Advise: You can add some make-up data to make the last batch data be exactly data size
+            batches = batch_iter(list(zip(x_test, y_test, y_test_bind)), FLAGS.batch_size, 1, shuffle=False)
 
             # Collect the predictions here
             all_predicitons = []
@@ -128,7 +156,8 @@ def test_rcnn():
                 x_batch_test, y_batch_test, y_batch_test_bind = zip(*batch_test)
                 feed_dict = {
                     input_x: x_batch_test,
-                    dropout_keep_prob: 1.0
+                    dropout_keep_prob: 1.0,
+                    is_training: False
                 }
                 batch_logits = sess.run(logits, feed_dict)
 
@@ -153,7 +182,8 @@ def test_rcnn():
             eval_rec = float(eval_rec / eval_counter)
             eval_acc = float(eval_acc / eval_counter)
             logger.info("☛ Recall {0:g}, Accuracy {1:g}".format(eval_rec, eval_acc))
-            np.savetxt(SAVE_FILE, list(zip(all_predicitons)), fmt='%s')
+            os.makedirs(SAVE_DIR)
+            np.savetxt(SAVE_DIR + '/predictions.txt', list(zip(all_predicitons)), fmt='%s')
 
     logger.info("✔ Done.")
 

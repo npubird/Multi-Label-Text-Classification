@@ -89,7 +89,7 @@ class TextRCNN(object):
         self.input_x = tf.placeholder(tf.int32, [None, sequence_length], name="input_x")
         self.input_y = tf.placeholder(tf.float32, [None, num_classes], name="input_y")
         self.dropout_keep_prob = tf.placeholder(tf.float32, name="dropout_keep_prob")
-        self.is_training = tf.placeholder(tf.bool)
+        self.is_training = tf.placeholder(tf.bool, name="is_training")
 
         self.global_step = tf.Variable(0, trainable=False, name="Global_Step")
 
@@ -112,7 +112,7 @@ class TextRCNN(object):
                     self.embedding = tf.cast(self.embedding, tf.float32)
             self.embedded_sentence = tf.nn.embedding_lookup(self.embedding, self.input_x)  # [None, sentence_length, embedding_size]
 
-        # get splitted list of word embeddings
+        # get split list of word embeddings
         self.embedded_word_split = tf.split(self.embedded_sentence, sequence_length, axis=1)  # sentence_length 个 [None, 1, embedding_size]
         self.embedded_word_squeezed = [tf.squeeze(x, axis=1) for x in self.embedded_word_split]   # sentence_length 个 [None, embedding_size]
 
@@ -145,7 +145,7 @@ class TextRCNN(object):
         W_r = tf.Variable(tf.truncated_normal(shape=[embedding_size, embedding_size], stddev=0.1), name="W_r")
         W_sr = tf.Variable(tf.truncated_normal(shape=[embedding_size, embedding_size], stddev=0.1), name="W_sr")
         for j, current_embedding_word in enumerate(self.embedded_word_squeezed):
-            context_right = get_context_right(context_right_afterward, embedding_afterward, W_r, W_sr)  # [None, embdedding_size]
+            context_right = get_context_right(context_right_afterward, embedding_afterward, W_r, W_sr)  # [None, embedding_size]
             context_right_list.append(context_right)
             embedding_afterward = current_embedding_word
             context_right_afterward = context_right
@@ -162,7 +162,7 @@ class TextRCNN(object):
         # Stack list to a tensor
         self.output_rnn = tf.stack(output_list, axis=1)
 
-        # Maxpooling over the outputs
+        # Max-pooling over the outputs
         self.output_pooling = tf.reduce_max(self.output_rnn, axis=1)  # [None, embedding_size*3]
 
         # Highway Layer
