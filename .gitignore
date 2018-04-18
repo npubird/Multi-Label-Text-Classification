@@ -109,5 +109,6 @@ Icon?
 *.png
 *.graffle
 *.tsv
+photinia
 RNN/MyAttention.py
 RNN/text_rnn-raw.py
