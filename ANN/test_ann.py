@@ -120,7 +120,8 @@ def test_ann():
             tf.train.write_graph(output_graph_def, 'graph', 'graph-ann-{0}.pb'.format(MODEL), as_text=False)
 
             # Generate batches for one epoch
-            batches = dh.batch_iter(list(zip(x_test, y_test, y_test_bind)), FLAGS.batch_size, 1, shuffle=False)
+            batches = dh.batch_iter(list(zip(x_test, y_test, y_test_bind)),
+                                              FLAGS.batch_size, 1, shuffle=False)
 
             # Collect the predictions here
             all_predicitons = []
