@@ -118,7 +118,6 @@ def train_rcnn():
                 num_classes=FLAGS.num_classes,
                 batch_size=FLAGS.batch_size,
                 vocab_size=VOCAB_SIZE,
-                hidden_size=FLAGS.embedding_dim,
                 embedding_size=FLAGS.embedding_dim,
                 embedding_type=FLAGS.embedding_type,
                 l2_reg_lambda=FLAGS.l2_reg_lambda,
