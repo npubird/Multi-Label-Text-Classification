@@ -20,6 +20,9 @@ METADATA_DIR = '../data/metadata.tsv'
 def logger_fn(name, file, level=logging.INFO):
     tf_logger = logging.getLogger(name)
     tf_logger.setLevel(level)
+    log_dir = os.path.dirname(file)
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
     fh = logging.FileHandler(file, mode='w')
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
     fh.setFormatter(formatter)
