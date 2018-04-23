@@ -42,6 +42,8 @@ METADATA_DIR = '../data/metadata.tsv'
 # Data Parameters
 tf.flags.DEFINE_string("training_data_file", TRAININGSET_DIR, "Data source for the training data.")
 tf.flags.DEFINE_string("validation_data_file", VALIDATIONSET_DIR, "Data source for the validation data.")
+tf.flags.DEFINE_string("metadata_file", METADATA_DIR, "Metadata file for embedding visualization"
+                                                      "(Each line is a word segment in metadata_file).")
 tf.flags.DEFINE_string("train_or_restore", TRAIN_OR_RESTORE, "Train or Restore.")
 tf.flags.DEFINE_string("use_classbind_or_not", CLASS_BIND, "Use the class bind info or not.")
 
@@ -268,6 +270,8 @@ def train_rnn():
             batches_train = dh.batch_iter(
                 list(zip(x_train, y_train)), FLAGS.batch_size, FLAGS.num_epochs)
 
+            num_batches_per_epoch = int((len(x_train) - 1) / FLAGS.batch_size) + 1
+
             # Training loop. For each batch...
             for batch_train in batches_train:
                 x_batch_train, y_batch_train = zip(*batch_train)
@@ -286,6 +290,11 @@ def train_rnn():
                     checkpoint_prefix = os.path.join(checkpoint_dir, "model")
                     path = saver.save(sess, checkpoint_prefix, global_step=current_step)
                     logger.info("✔︎ Saved model checkpoint to {0}\n".format(path))
+
+                if current_step % num_batches_per_epoch == 0:
+                    time_str = datetime.datetime.now().isoformat()
+                    current_epoch = current_step // num_batches_per_epoch
+                    logger.info("{0}: ✔︎ Epoch {1} has finished!".format(time_str, current_epoch))
 
     logger.info("✔︎ Done.")
 

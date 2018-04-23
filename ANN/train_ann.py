@@ -268,6 +268,8 @@ def train_ann():
             batches_train = dh.batch_iter(
                 list(zip(x_train, y_train)), FLAGS.batch_size, FLAGS.num_epochs)
 
+            num_batches_per_epoch = int((len(x_train) - 1) / FLAGS.batch_size) + 1
+
             # Training loop. For each batch...
             for batch_train in batches_train:
                 x_batch_train, y_batch_train = zip(*batch_train)
@@ -286,6 +288,11 @@ def train_ann():
                     checkpoint_prefix = os.path.join(checkpoint_dir, "model")
                     path = saver.save(sess, checkpoint_prefix, global_step=current_step)
                     logger.info("✔︎ Saved model checkpoint to {0}\n".format(path))
+
+                if current_step % num_batches_per_epoch == 0:
+                    time_str = datetime.datetime.now().isoformat()
+                    current_epoch = current_step // num_batches_per_epoch
+                    logger.info("{0}: ✔︎ Epoch {1} has finished!".format(time_str, current_epoch))
 
     logger.info("✔︎ Done.")
 
