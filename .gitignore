@@ -38,7 +38,6 @@ Thumbs.db
 ### Python ###
 # Byte-compiled / optimized / DLL files
 *.npy
-runs/
 __pycache__/
 *.py[cod]
 *$py.class
@@ -85,30 +84,49 @@ coverage.xml
 *.mo
 *.pot
 
-# Django stuff:
-*.log
-
 # Sphinx documentation
 docs/_build/
 
 # PyBuilder
 target/
 
-
 ### IPythonNotebook ###
 # Temporary data
 .ipynb_checkpoints/
 
-###Private Data info###
+### Current Project ###
+# Data File
 *.txt
-*.json
-randolph
-temp.py
-Icon?
-*.model
-*.png
-*.graffle
 *.tsv
-photinia
+*.csv
+*.json
+*.jpg
+*.png
+
+# Model File
+*.model
+*.pb
+runs/
+graph/
 RNN/MyAttention.py
 RNN/text_rnn-raw.py
+
+# Analysis File
+Data Analysis.md
+Tag-Merge/
+Total-Merge/
+
+# Log File
+logs/
+
+# Related Code
+temp.py
+build_content.py
+build_pairs.py
+db_operation.py
+
+### Else ###
+randolph/
+Icon?
+*.graffle
+photinia
