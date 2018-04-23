@@ -81,6 +81,7 @@ logger.info('\n'.join([dilim, *['{0:>50}|{1:<50}'.format(attr.upper(), FLAGS.__g
 
 def train_rcnn():
     """Training RCNN model."""
+
     # Load sentences, labels, and training parameters
     logger.info('✔︎ Loading data...')
 
