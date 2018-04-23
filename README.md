@@ -7,7 +7,7 @@ The main objective of the project is to solve the multi-label text classificatio
 ## Requirements
 
 - Python 3.6
-- Tensorflow 1.7
+- Tensorflow 1.7 +
 - Numpy
 - Gensim
 
@@ -112,6 +112,16 @@ References:
 References:
 
 - [Hierarchical Attention Networks for Document Classification](https://www.cs.cmu.edu/~diyiy/docs/naacl16.pdf)
+
+---
+
+### TextMANN
+
+**Warning: Not finished yet 🤪!**
+
+![]()
+
+References:
 
 ---
 
