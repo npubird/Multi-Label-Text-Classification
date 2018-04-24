@@ -30,6 +30,22 @@ def logger_fn(name, file, level=logging.INFO):
     return tf_logger
 
 
+def create_prediction_file(file, data_id, all_predict_labels, all_predict_values):
+    if not file.endswith('.json'):
+        logging.info('✘ The prediction file is not a json file. '
+                     'Please make sure the prediction data is a json file.')
+    with open(file, 'w') as fout:
+        for index in range(len(all_predict_labels)):
+            predict_labels = [int(i) for i in all_predict_labels[index].tolist()]
+            predict_values = [round(i, 4) for i in all_predict_values[index].tolist()]
+            data_record = {
+                'testid': data_id[index],
+                'domain': predict_labels,
+                'predict_values': predict_values
+            }
+            fout.write(json.dumps(data_record, ensure_ascii=True) + '\n')
+
+
 def get_label_using_logits(logits, top_number=1):
     logits = np.ndarray.tolist(logits)
     predicted_labels = []
@@ -202,14 +218,18 @@ def data_word2vec(input_file, num_labels, word2vec_model):
 
     if input_file.endswith('.json'):
         with open(input_file) as fin:
+            testid = []
             content_indexlist = []
             labels = []
             labels_bind = []
             for index, eachline in enumerate(fin):
                 content = []
                 data = json.loads(eachline)
+                test_id = data['testid']
                 features_content = data['features_content'].strip().split()
                 label_index = data['knows_index'].strip().split()
+
+                testid.append(test_id)
 
                 for item in features_content:
                     content.append(item)
@@ -225,6 +245,10 @@ def data_word2vec(input_file, num_labels, word2vec_model):
         class Data:
             def __init__(self):
                 pass
+
+            @property
+            def testid(self):
+                return testid
 
             @property
             def number(self):
