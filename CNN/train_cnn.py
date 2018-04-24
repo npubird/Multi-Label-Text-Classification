@@ -58,7 +58,7 @@ tf.flags.DEFINE_integer("num_filters", 128, "Number of filters per filter size (
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 0.0)")
 tf.flags.DEFINE_integer("num_classes", 367, "Number of labels (depends on the task)")
-tf.flags.DEFINE_integer("top_num", 1, "Number of top K prediction classes (default: 3)")
+tf.flags.DEFINE_integer("top_num", 3, "Number of top K prediction classes (default: 3)")
 
 # Training Parameters
 tf.flags.DEFINE_integer("batch_size", 512, "Batch Size (default: 64)")
@@ -119,6 +119,7 @@ def train_cnn():
             cnn = TextCNN(
                 sequence_length=FLAGS.pad_seq_len,
                 num_classes=FLAGS.num_classes,
+                top_num=FLAGS.top_num,
                 vocab_size=VOCAB_SIZE,
                 fc_hidden_size=FLAGS.fc_hidden_size,
                 embedding_size=FLAGS.embedding_dim,
@@ -221,8 +222,7 @@ def train_cnn():
                 }
                 _, step, summaries, loss = sess.run(
                     [train_op, cnn.global_step, train_summary_op, cnn.loss], feed_dict)
-                time_str = datetime.datetime.now().isoformat()
-                logger.info("{0}: step {1}, loss {2:g}".format(time_str, step, loss))
+                logger.info("step {0}: loss {1:g}".format(step, loss))
                 train_summary_writer.add_summary(summaries, step)
 
             def validation_step(x_validation, y_validation, y_validation_bind, writer=None):
@@ -284,9 +284,8 @@ def train_cnn():
                     logger.info("\nEvaluation:")
                     eval_loss, eval_rec, eval_acc = validation_step(x_validation, y_validation, y_validation_bind,
                                                                     writer=validation_summary_writer)
-                    time_str = datetime.datetime.now().isoformat()
-                    logger.info("{0}: step {1}, loss {2:g}, rec {3:g}, acc {4:g}"
-                                .format(time_str, current_step, eval_loss, eval_rec, eval_acc))
+                    logger.info("step {0}: loss {1:g}, rec {2:g}, acc {3:g}"
+                                .format(current_step, eval_loss, eval_rec, eval_acc))
 
                 if current_step % FLAGS.checkpoint_every == 0:
                     checkpoint_prefix = os.path.join(checkpoint_dir, "model")
@@ -294,9 +293,8 @@ def train_cnn():
                     logger.info("✔︎ Saved model checkpoint to {0}\n".format(path))
 
                 if current_step % num_batches_per_epoch == 0:
-                    time_str = datetime.datetime.now().isoformat()
                     current_epoch = current_step // num_batches_per_epoch
-                    logger.info("{0}: ✔︎ Epoch {1} has finished!".format(time_str, current_epoch))
+                    logger.info("✔︎ Epoch {0} has finished!".format(current_epoch))
 
     logger.info("✔︎ Done.")
 

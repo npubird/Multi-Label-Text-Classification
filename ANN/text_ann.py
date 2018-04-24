@@ -55,7 +55,7 @@ class TextANN(object):
     """A ANN for text classification."""
 
     def __init__(
-            self, sequence_length, num_classes, vocab_size, fc_hidden_size, embedding_size,
+            self, sequence_length, num_classes, top_num, vocab_size, fc_hidden_size, embedding_size,
             embedding_type, l2_reg_lambda=0.0, pretrained_embedding=None):
 
         # Placeholders for input, output and dropout
@@ -114,9 +114,11 @@ class TextANN(object):
             l2_loss += tf.nn.l2_loss(W)
             l2_loss += tf.nn.l2_loss(b)
             self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="logits")
+            self.scores = tf.sigmoid(self.logits, name="scores")
+            self.topKPreds = tf.nn.top_k(self.scores, k=top_num, sorted=True, name="topKPreds")
 
         # Calculate mean cross-entropy loss
         with tf.name_scope("loss"):
             losses = tf.nn.sigmoid_cross_entropy_with_logits(labels=self.input_y, logits=self.logits)
             losses = tf.reduce_sum(losses, axis=1)
-            self.loss = tf.reduce_mean(losses) + l2_reg_lambda * l2_loss
+            self.loss = tf.reduce_mean(losses, name="loss") + l2_reg_lambda * l2_loss

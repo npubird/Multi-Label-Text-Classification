@@ -44,7 +44,7 @@ tf.flags.DEFINE_integer("pad_seq_len", 150, "Recommended padding Sequence length
 tf.flags.DEFINE_integer("embedding_dim", 100, "Dimensionality of character embedding (default: 128)")
 tf.flags.DEFINE_integer("embedding_type", 1, "The embedding type (default: 1)")
 tf.flags.DEFINE_integer("fc_hidden_size", 1024, "Hidden size for fully connected layer (default: 1024)")
-tf.flags.DEFINE_string("filter_sizes", "2,3,4,5,6,7", "Comma-separated filter sizes (default: '3,4,5')")
+tf.flags.DEFINE_string("filter_sizes", "3,4,5", "Comma-separated filter sizes (default: '3,4,5')")
 tf.flags.DEFINE_integer("num_filters", 256, "Number of filters per filter size (default: 128)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 0.0)")
@@ -103,7 +103,7 @@ def test_cnn():
 
             # Get the placeholders from the graph by name
             input_x = graph.get_operation_by_name("input_x").outputs[0]
-            # input_y = graph.get_operation_by_name("input_y").outputs[0]
+            input_y = graph.get_operation_by_name("input_y").outputs[0]
             dropout_keep_prob = graph.get_operation_by_name("dropout_keep_prob").outputs[0]
             is_training = graph.get_operation_by_name("is_training").outputs[0]
 
@@ -112,9 +112,11 @@ def test_cnn():
 
             # Tensors we want to evaluate
             logits = graph.get_operation_by_name("output/logits").outputs[0]
+            topKPreds = graph.get_operation_by_name("output/topKPreds").outputs[0]
+            loss = graph.get_operation_by_name("loss/loss").outputs[0]
 
             # Split the output nodes name by '|' if you have several output nodes
-            output_node_names = 'output/logits'
+            output_node_names = 'output/logits|output/scores|output/topKPreds'
 
             # Save the .pb model file
             output_graph_def = tf.graph_util.convert_variables_to_constants(sess, sess.graph_def,
@@ -125,16 +127,25 @@ def test_cnn():
             batches = dh.batch_iter(list(zip(x_test, y_test, y_test_bind)), FLAGS.batch_size, 1, shuffle=False)
 
             # Collect the predictions here
-            all_predicitons = []
+            all_predicitons = np.empty(shape=(0, FLAGS.top_num))
+            all_topKPreds = np.empty(shape=(0, FLAGS.top_num))
+
             eval_loss, eval_rec, eval_acc, eval_counter = 0.0, 0.0, 0.0, 0
+
             for batch_test in batches:
                 x_batch_test, y_batch_test, y_batch_test_bind = zip(*batch_test)
                 feed_dict = {
                     input_x: x_batch_test,
+                    input_y: y_batch_test,
                     dropout_keep_prob: 1.0,
                     is_training: False
                 }
                 batch_logits = sess.run(logits, feed_dict)
+
+                batch_topKPreds = sess.run(topKPreds, feed_dict)
+                all_topKPreds = np.vstack((all_topKPreds, batch_topKPreds))
+
+                batch_loss = sess.run(loss, feed_dict)
 
                 if FLAGS.use_classbind_or_not == 'Y':
                     predicted_labels = dh.get_label_using_logits_and_classbind(
@@ -142,7 +153,8 @@ def test_cnn():
                 if FLAGS.use_classbind_or_not == 'N':
                     predicted_labels = dh.get_label_using_logits(batch_logits, top_number=FLAGS.top_num)
 
-                all_predicitons = np.append(all_predicitons, predicted_labels)
+                all_predicitons = np.vstack((all_predicitons, predicted_labels))
+
                 cur_rec, cur_acc = 0.0, 0.0
                 for index, predicted_label in enumerate(predicted_labels):
                     rec_inc, acc_inc = dh.cal_rec_and_acc(predicted_label, y_batch_test[index])
@@ -152,13 +164,16 @@ def test_cnn():
                 cur_acc = cur_acc / len(y_batch_test)
 
                 eval_rec, eval_acc, eval_counter = eval_rec + cur_rec, eval_acc + cur_acc, eval_counter + 1
-                logger.info("✔︎ validation batch {0} finished.".format(eval_counter))
+                logger.info("✔︎ Test batch {0}: loss {1:g}, recall {2:g}, accuracy {2:g}."
+                            .format(eval_counter, batch_loss, cur_rec, cur_acc))
 
             eval_rec = float(eval_rec / eval_counter)
             eval_acc = float(eval_acc / eval_counter)
-            logger.info("☛ Recall {0:g}, Accuracy {1:g}".format(eval_rec, eval_acc))
-            os.makedirs(SAVE_DIR)
-            np.savetxt(SAVE_DIR + '/predictions.txt', list(zip(all_predicitons)), fmt='%s')
+            logger.info("☛ All Test Dataset: Recall {0:g}, Accuracy {1:g}".format(eval_rec, eval_acc))
+            if not os.path.exists(SAVE_DIR):
+                os.makedirs(SAVE_DIR)
+            dh.create_preditction_file(file=SAVE_DIR + '/predictions.json', data_id=test_data.testid,
+                                       all_predict_labels=all_predicitons, all_predict_values=all_topKPreds)
 
     logger.info("✔ Done.")
 

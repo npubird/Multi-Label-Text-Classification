@@ -117,6 +117,7 @@ def train_rcnn():
             rcnn = TextRCNN(
                 sequence_length=FLAGS.pad_seq_len,
                 num_classes=FLAGS.num_classes,
+                top_num=FLAGS.top_num,
                 batch_size=FLAGS.batch_size,
                 vocab_size=VOCAB_SIZE,
                 embedding_size=FLAGS.embedding_dim,
@@ -241,8 +242,7 @@ def train_rcnn():
                 }
                 _, step, summaries, loss = sess.run(
                     [train_op, rcnn.global_step, train_summary_op, rcnn.loss], feed_dict)
-                time_str = datetime.datetime.now().isoformat()
-                logger.info("{0}: step {1}, loss {2:g}".format(time_str, step, loss))
+                logger.info("step {0}: loss {1:g}".format(step, loss))
                 train_summary_writer.add_summary(summaries, step)
 
             def validation_step(x_validation, y_validation, y_validation_bind, writer=None):
@@ -304,9 +304,8 @@ def train_rcnn():
                     logger.info("\nEvaluation:")
                     eval_loss, eval_rec, eval_acc = validation_step(x_validation, y_validation, y_validation_bind,
                                                                     writer=validation_summary_writer)
-                    time_str = datetime.datetime.now().isoformat()
-                    logger.info("{0}: step {1}, loss {2:g}, rec {3:g}, acc {4:g}"
-                                .format(time_str, current_step, eval_loss, eval_rec, eval_acc))
+                    logger.info("step {0}: loss {1:g}, rec {2:g}, acc {3:g}"
+                                .format(current_step, eval_loss, eval_rec, eval_acc))
 
                 if current_step % FLAGS.checkpoint_every == 0:
                     checkpoint_prefix = os.path.join(checkpoint_dir, "model")
@@ -314,9 +313,8 @@ def train_rcnn():
                     logger.info("✔︎ Saved model checkpoint to {0}\n".format(path))
 
                 if current_step % num_batches_per_epoch == 0:
-                    time_str = datetime.datetime.now().isoformat()
                     current_epoch = current_step // num_batches_per_epoch
-                    logger.info("{0}: ✔︎ Epoch {1} has finished!".format(time_str, current_epoch))
+                    logger.info("✔︎ Epoch {0} has finished!".format(current_epoch))
 
     logger.info("✔︎ Done.")
 
