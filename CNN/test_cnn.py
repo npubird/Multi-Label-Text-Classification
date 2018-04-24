@@ -127,7 +127,7 @@ def test_cnn():
             batches = dh.batch_iter(list(zip(x_test, y_test, y_test_bind)), FLAGS.batch_size, 1, shuffle=False)
 
             # Collect the predictions here
-            all_predicitons = np.empty(shape=(0, FLAGS.top_num))
+            all_predictions = np.empty(shape=(0, FLAGS.top_num))
             all_topKPreds = np.empty(shape=(0, FLAGS.top_num))
 
             eval_loss, eval_rec, eval_acc, eval_counter = 0.0, 0.0, 0.0, 0
@@ -153,7 +153,7 @@ def test_cnn():
                 if FLAGS.use_classbind_or_not == 'N':
                     predicted_labels = dh.get_label_using_logits(batch_logits, top_number=FLAGS.top_num)
 
-                all_predicitons = np.vstack((all_predicitons, predicted_labels))
+                all_predictions = np.vstack((all_predictions, predicted_labels))
 
                 cur_rec, cur_acc = 0.0, 0.0
                 for index, predicted_label in enumerate(predicted_labels):
@@ -172,8 +172,8 @@ def test_cnn():
             logger.info("☛ All Test Dataset: Recall {0:g}, Accuracy {1:g}".format(eval_rec, eval_acc))
             if not os.path.exists(SAVE_DIR):
                 os.makedirs(SAVE_DIR)
-            dh.create_preditction_file(file=SAVE_DIR + '/predictions.json', data_id=test_data.testid,
-                                       all_predict_labels=all_predicitons, all_predict_values=all_topKPreds)
+            dh.create_prediction_file(file=SAVE_DIR + '/predictions.json', data_id=test_data.testid,
+                                      all_predict_labels=all_predictions, all_predict_values=all_topKPreds)
 
     logger.info("✔ Done.")
 
