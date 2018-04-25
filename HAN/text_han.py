@@ -66,16 +66,13 @@ class TextHAN(object):
 
         self.global_step = tf.Variable(0, trainable=False, name="Global_Step")
 
-        # Keeping track of l2 regularization loss (optional)
-        l2_loss = tf.constant(0.0)
-
         # Embedding layer
         with tf.device('/cpu:0'), tf.name_scope("embedding"):
             # Use random generated the word vector by default
             # Can also be obtained through our own word vectors trained by our corpus
             if pretrained_embedding is None:
                 self.embedding = tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0),
-                                             name="embedding")
+                                             dtype=tf.float32, name="embedding")
             else:
                 if embedding_type == 0:
                     self.embedding = tf.constant(pretrained_embedding, name="embedding")
@@ -89,8 +86,6 @@ class TextHAN(object):
         with tf.name_scope("output"):
             W = tf.Variable(tf.truncated_normal(shape=[hidden_size, num_classes], stddev=0.1), name="W")
             b = tf.Variable(tf.constant(0.1, shape=[num_classes]), dtype=tf.float32, name="b")
-            l2_loss += tf.nn.l2_loss(W)
-            l2_loss += tf.nn.l2_loss(b)
             self.logits = tf.nn.xw_plus_b(self.embedded_sentence, W, b, name="logits")
             self.scores = tf.sigmoid(self.logits, name="scores")
             self.topKPreds = tf.nn.top_k(self.scores, k=top_num, sorted=True, name="topKPreds")
@@ -98,5 +93,7 @@ class TextHAN(object):
         # Calculate mean cross-entropy loss
         with tf.name_scope("loss"):
             losses = tf.nn.sigmoid_cross_entropy_with_logits(labels=self.input_y, logits=self.logits)
-            losses = tf.reduce_sum(losses, axis=1)
-            self.loss = tf.reduce_mean(losses, name="loss") + l2_reg_lambda * l2_loss
+            losses = tf.reduce_mean(tf.reduce_sum(losses, axis=1), name="sigmoid_losses")
+            l2_losses = tf.add_n([tf.nn.l2_loss(tf.cast(v, tf.float32)) for v in tf.trainable_variables()],
+                                 name="l2_losses") * l2_reg_lambda
+            self.loss = tf.add(losses, l2_losses, name="loss")

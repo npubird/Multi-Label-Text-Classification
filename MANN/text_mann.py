@@ -69,16 +69,13 @@ class TextMANN(object):
 
         self.global_step = tf.Variable(0, trainable=False, name="Global_Step")
 
-        # Keeping track of l2 regularization loss (optional)
-        l2_loss = tf.constant(0.0)
-
         # Embedding layer
         with tf.device('/cpu:0'), tf.name_scope("embedding"):
             # Use random generated the word vector by default
             # Can also be obtained through our own word vectors trained by our corpus
             if pretrained_embedding is None:
                 self.embedding = tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0),
-                                             name="embedding")
+                                             dtype=tf.float32, name="embedding")
             else:
                 if embedding_type == 0:
                     self.embedding = tf.constant(pretrained_embedding, name="embedding")
@@ -88,24 +85,41 @@ class TextMANN(object):
                     self.embedding = tf.cast(self.embedding, tf.float32)
             self.embedded_sentence = tf.nn.embedding_lookup(self.embedding, self.input_x)  # [None, sentence_length, embedding_size]
 
-        # with tf.name_scope("lstm"):
-            # LSTM Layer
+        def _lstm():
+            with tf.name_scope("lstm"):
+                # LSTM Layer
+                lstm_cell = rnn.BasicLSTMCell(hidden_size)
+                if self.dropout_keep_prob is not None:
+                    lstm_cell = rnn.DropoutWrapper(cell=lstm_cell, output_keep_prob=self.dropout_keep_prob)
 
-        with tf.name_scope("Bi-lstm"):
-            # Bi-LSTM Layer
-            lstm_fw_cell = rnn.BasicLSTMCell(hidden_size)  # forward direction cell
-            lstm_bw_cell = rnn.BasicLSTMCell(hidden_size)  # backward direction cell
-            if self.dropout_keep_prob is not None:
-                lstm_fw_cell = rnn.DropoutWrapper(lstm_fw_cell, output_keep_prob=self.dropout_keep_prob)
-                lstm_bw_cell = rnn.DropoutWrapper(lstm_bw_cell, output_keep_prob=self.dropout_keep_prob)
+                outputs, state = tf.nn.dynamic_rnn(lstm_cell, self.embedded_sentence, dtype=tf.float32)
 
-            # Creates a dynamic bidirectional recurrent neural network
-            # shape: [batch_size, sequence_length, hidden_size]
-            outputs, state = tf.nn.bidirectional_dynamic_rnn(lstm_fw_cell, lstm_bw_cell,
-                                                             self.embedded_sentence, dtype=tf.float32)
+                for time_step in range(sequence_length):
+                    if time_step > 0:
+                        tf.get_variable_scope().reuse_variables()
+
+
+        def _bi_lstm():
+            with tf.name_scope("Bi-lstm"):
+                # Bi-LSTM Layer
+                lstm_fw_cell = rnn.BasicLSTMCell(hidden_size)  # forward direction cell
+                lstm_bw_cell = rnn.BasicLSTMCell(hidden_size)  # backward direction cell
+                if self.dropout_keep_prob is not None:
+                    lstm_fw_cell = rnn.DropoutWrapper(lstm_fw_cell, output_keep_prob=self.dropout_keep_prob)
+                    lstm_bw_cell = rnn.DropoutWrapper(lstm_bw_cell, output_keep_prob=self.dropout_keep_prob)
+
+                # Creates a dynamic bidirectional recurrent neural network
+                # shape: [batch_size, sequence_length, hidden_size]
+                outputs, state = tf.nn.bidirectional_dynamic_rnn(lstm_fw_cell, lstm_bw_cell,
+                                                                 self.embedded_sentence, dtype=tf.float32)
+
+            # Concat output
+            self.lstm_concat = tf.concat(outputs, axis=2)  # [batch_size, sequence_length, hidden_size*2]
+            self.lstm_out = tf.reduce_mean(self.lstm_concat, axis=1)  # [batch_size, hidden_size*2]
+
+
 
         output_list = []
-
 
         self.output = tf.stack(output_list, axis=0)
 
@@ -120,8 +134,6 @@ class TextMANN(object):
         with tf.name_scope("output"):
             W = tf.Variable(tf.truncated_normal(shape=[embedding_size*3, num_classes], stddev=0.1), name="W")
             b = tf.Variable(tf.constant(0.1, shape=[num_classes]), dtype=tf.float32, name="b")
-            l2_loss += tf.nn.l2_loss(W)
-            l2_loss += tf.nn.l2_loss(b)
             self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="logits")
             self.scores = tf.sigmoid(self.logits, name="scores")
             self.topKPreds = tf.nn.top_k(self.scores, k=top_num, sorted=True, name="topKPreds")
@@ -129,5 +141,7 @@ class TextMANN(object):
         # Calculate mean cross-entropy loss
         with tf.name_scope("loss"):
             losses = tf.nn.sigmoid_cross_entropy_with_logits(labels=self.input_y, logits=self.logits)
-            losses = tf.reduce_sum(losses, axis=1)
-            self.loss = tf.reduce_mean(losses, name="loss") + l2_reg_lambda * l2_loss
+            losses = tf.reduce_mean(tf.reduce_sum(losses, axis=1), name="sigmoid_losses")
+            l2_losses = tf.add_n([tf.nn.l2_loss(tf.cast(v, tf.float32)) for v in tf.trainable_variables()],
+                                 name="l2_losses") * l2_reg_lambda
+            self.loss = tf.add(losses, l2_losses, name="loss")
