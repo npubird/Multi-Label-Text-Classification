@@ -4,7 +4,6 @@ __author__ = 'Randolph'
 import os
 import sys
 import time
-import datetime
 import logging
 import numpy as np
 import tensorflow as tf
@@ -56,12 +55,13 @@ tf.flags.DEFINE_integer("embedding_type", 1, "The embedding type (default: 1)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 0.0)")
 tf.flags.DEFINE_integer("num_classes", 367, "Number of labels (depends on the task)")
-tf.flags.DEFINE_integer("top_num", 1, "Number of top K prediction classes (default: 3)")
+tf.flags.DEFINE_integer("top_num", 3, "Number of top K prediction classes (default: 3)")
 
 # Training Parameters
 tf.flags.DEFINE_integer("batch_size", 512, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer("num_epochs", 200, "Number of training epochs (default: 200)")
 tf.flags.DEFINE_integer("evaluate_every", 5000, "Evaluate model on dev set after this many steps (default: 100)")
+tf.flags.DEFINE_float("norm_ratio", 2, "The ratio of the sum of gradients norms of trainable variable (default: 1.25)")
 tf.flags.DEFINE_integer("decay_steps", 5000, "how many steps before decay learning rate.")
 tf.flags.DEFINE_float("decay_rate", 0.5, "Rate of decay for learning rate.")
 tf.flags.DEFINE_integer("checkpoint_every", 1000, "Save model after this many steps (default: 100)")
@@ -131,12 +131,13 @@ def train_rcnn():
             #                                            staircase=True)
             with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
                 optimizer = tf.train.AdamOptimizer(FLAGS.learning_rate)
-                grads_and_vars = optimizer.compute_gradients(rcnn.loss)
-                train_op = optimizer.apply_gradients(grads_and_vars, global_step=rcnn.global_step, name="train_op")
+                grads, vars = zip(*optimizer.compute_gradients(rcnn.loss))
+                grads, _ = tf.clip_by_global_norm(grads, clip_norm=FLAGS.norm_ratio)
+                train_op = optimizer.apply_gradients(zip(grads, vars), global_step=rcnn.global_step, name="train_op")
 
             # Keep track of gradient values and sparsity (optional)
             grad_summaries = []
-            for g, v in grads_and_vars:
+            for g, v in zip(grads, vars):
                 if g is not None:
                     grad_hist_summary = tf.summary.histogram("{0}/grad/hist".format(v.name), g)
                     sparsity_summary = tf.summary.scalar("{0}/grad/sparsity".format(v.name), tf.nn.zero_fraction(g))

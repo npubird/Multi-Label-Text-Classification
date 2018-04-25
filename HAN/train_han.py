@@ -61,6 +61,7 @@ tf.flags.DEFINE_integer("top_num", 3, "Number of top K prediction classes (defau
 tf.flags.DEFINE_integer("batch_size", 512, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer("num_epochs", 200, "Number of training epochs (default: 200)")
 tf.flags.DEFINE_integer("evaluate_every", 5000, "Evaluate model on dev set after this many steps (default: 100)")
+tf.flags.DEFINE_float("norm_ratio", 2, "The ratio of the sum of gradients norms of trainable variable (default: 1.25)")
 tf.flags.DEFINE_integer("decay_steps", 5000, "how many steps before decay learning rate.")
 tf.flags.DEFINE_float("decay_rate", 0.5, "Rate of decay for learning rate.")
 tf.flags.DEFINE_integer("checkpoint_every", 1000, "Save model after this many steps (default: 100)")
@@ -131,8 +132,9 @@ def train_han():
             #                                            staircase=True)
             with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
                 optimizer = tf.train.AdamOptimizer(FLAGS.learning_rate)
-                grads_and_vars = optimizer.compute_gradients(han.loss)
-                train_op = optimizer.apply_gradients(grads_and_vars, global_step=han.global_step, name="train_op")
+                grads, vars = zip(*optimizer.compute_gradients(han.loss))
+                grads, _ = tf.clip_by_global_norm(grads, clip_norm=FLAGS.norm_ratio)
+                train_op = optimizer.apply_gradients(zip(grads, vars), global_step=han.global_step, name="train_op")
 
             # Keep track of gradient values and sparsity (optional)
             grad_summaries = []

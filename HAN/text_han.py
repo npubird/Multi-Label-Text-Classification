@@ -62,7 +62,7 @@ class TextHAN(object):
         self.input_x = tf.placeholder(tf.int32, [None, sequence_length], name="input_x")
         self.input_y = tf.placeholder(tf.float32, [None, num_classes], name="input_y")
         self.dropout_keep_prob = tf.placeholder(tf.float32, name="dropout_keep_prob")
-        self.is_training = tf.placeholder(tf.bool)
+        self.is_training = tf.placeholder(tf.bool, name="is_training")
 
         self.global_step = tf.Variable(0, trainable=False, name="Global_Step")
 
@@ -71,21 +71,21 @@ class TextHAN(object):
             # Use random generated the word vector by default
             # Can also be obtained through our own word vectors trained by our corpus
             if pretrained_embedding is None:
-                self.embedding = tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0),
-                                             dtype=tf.float32, name="embedding")
+                self.embedding = tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0,
+                                                               dtype=tf.float32), trainable=True, name="embedding")
             else:
                 if embedding_type == 0:
-                    self.embedding = tf.constant(pretrained_embedding, name="embedding")
-                    self.embedding = tf.cast(self.embedding, tf.float32)
+                    self.embedding = tf.constant(pretrained_embedding, dtype=tf.float32, name="embedding")
                 if embedding_type == 1:
-                    self.embedding = tf.Variable(pretrained_embedding, name="embedding", trainable=True)
-                    self.embedding = tf.cast(self.embedding, tf.float32)
+                    self.embedding = tf.Variable(pretrained_embedding, trainable=True,
+                                                 dtype=tf.float32, name="embedding")
             self.embedded_sentence = tf.nn.embedding_lookup(self.embedding, self.input_x)
 
         # Final scores and predictions
         with tf.name_scope("output"):
-            W = tf.Variable(tf.truncated_normal(shape=[hidden_size, num_classes], stddev=0.1), name="W")
-            b = tf.Variable(tf.constant(0.1, shape=[num_classes]), dtype=tf.float32, name="b")
+            W = tf.Variable(tf.truncated_normal(shape=[hidden_size, num_classes],
+                                                stddev=0.1, dtype=tf.float32), name="W")
+            b = tf.Variable(tf.constant(0.1, shape=[num_classes], dtype=tf.float32), name="b")
             self.logits = tf.nn.xw_plus_b(self.embedded_sentence, W, b, name="logits")
             self.scores = tf.sigmoid(self.logits, name="scores")
             self.topKPreds = tf.nn.top_k(self.scores, k=top_num, sorted=True, name="topKPreds")
