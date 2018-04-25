@@ -192,7 +192,11 @@ class TextRNN(object):
                 lstm_bw_cell = rnn.DropoutWrapper(lstm_bw_cell, output_keep_prob=self.dropout_keep_prob)
 
             # Creates a dynamic bidirectional recurrent neural network
-            # shape: [batch_size, sequence_length, hidden_size]
+            # shape of `outputs`: tuple -> (outputs_fw, outputs_bw)
+            # shape of `outputs_fw`: [batch_size, sequence_length, hidden_size]
+
+            # shape of `state`: tuple -> (outputs_state_fw, output_state_bw)
+            # shape of `outputs_state_fw`: tuple -> (c, h) c: memory cell; h: hidden state
             outputs, state = tf.nn.bidirectional_dynamic_rnn(lstm_fw_cell, lstm_bw_cell,
                                                              self.embedded_sentence, dtype=tf.float32)
 
