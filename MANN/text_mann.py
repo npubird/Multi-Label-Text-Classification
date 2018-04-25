@@ -82,9 +82,9 @@ class TextMANN(object):
                 if embedding_type == 1:
                     self.embedding = tf.Variable(pretrained_embedding, trainable=True,
                                                  dtype=tf.float32, name="embedding")
-            self.embedded_sentence = tf.nn.embedding_lookup(self.embedding, self.input_x)  # [None, sentence_length, embedding_size]
+            self.embedded_sentence = tf.nn.embedding_lookup(self.embedding, self.input_x)
 
-        def _lstm():
+        def _lstm(self):
             with tf.name_scope("lstm"):
                 # LSTM Layer
                 lstm_cell = rnn.BasicLSTMCell(hidden_size)
@@ -93,12 +93,24 @@ class TextMANN(object):
 
                 outputs, state = tf.nn.dynamic_rnn(lstm_cell, self.embedded_sentence, dtype=tf.float32)
 
-                for time_step in range(sequence_length):
-                    if time_step > 0:
-                        tf.get_variable_scope().reuse_variables()
+            self.lstm_out = tf.reduce_mean(outputs, axis=1)  # [batch_size, hidden_size]
 
+            # Fully Connected Layer
+            with tf.name_scope("fc"):
+                W = tf.Variable(tf.truncated_normal(shape=[hidden_size, fc_hidden_size],
+                                                    stddev=0.1, dtype=tf.float32), name="W")
+                b = tf.Variable(tf.constant(0.1, shape=[fc_hidden_size], dtype=tf.float32), name="b")
+                self.fc = tf.nn.xw_plus_b(self.lstm_out, W, b)
 
-        def _bi_lstm():
+                # Batch Normalization Layer
+                self.fc_bn = tf.layers.batch_normalization(self.fc, training=self.is_training)
+
+                # Apply nonlinearity
+                self.fc_out = tf.nn.relu(self.fc_bn, name="relu")
+
+            return self.fc_out
+
+        def _bi_lstm(self):
             with tf.name_scope("Bi-lstm"):
                 # Bi-LSTM Layer
                 lstm_fw_cell = rnn.BasicLSTMCell(hidden_size)  # forward direction cell
@@ -108,7 +120,11 @@ class TextMANN(object):
                     lstm_bw_cell = rnn.DropoutWrapper(lstm_bw_cell, output_keep_prob=self.dropout_keep_prob)
 
                 # Creates a dynamic bidirectional recurrent neural network
-                # shape: [batch_size, sequence_length, hidden_size]
+                # shape of `outputs`: tuple -> (outputs_fw, outputs_bw)
+                # shape of `outputs_fw`: [batch_size, sequence_length, hidden_size]
+
+                # shape of `state`: tuple -> (outputs_state_fw, output_state_bw)
+                # shape of `outputs_state_fw`: tuple -> (c, h) c: memory cell; h: hidden state
                 outputs, state = tf.nn.bidirectional_dynamic_rnn(lstm_fw_cell, lstm_bw_cell,
                                                                  self.embedded_sentence, dtype=tf.float32)
 
@@ -116,14 +132,25 @@ class TextMANN(object):
             self.lstm_concat = tf.concat(outputs, axis=2)  # [batch_size, sequence_length, hidden_size*2]
             self.lstm_out = tf.reduce_mean(self.lstm_concat, axis=1)  # [batch_size, hidden_size*2]
 
+            # Fully Connected Layer
+            with tf.name_scope("fc"):
+                W = tf.Variable(tf.truncated_normal(shape=[hidden_size * 2, fc_hidden_size],
+                                                    stddev=0.1, dtype=tf.float32), name="W")
+                b = tf.Variable(tf.constant(0.1, shape=[fc_hidden_size], dtype=tf.float32), name="b")
+                self.fc = tf.nn.xw_plus_b(self.lstm_out, W, b)
 
+                # Batch Normalization Layer
+                self.fc_bn = tf.layers.batch_normalization(self.fc, training=self.is_training)
 
-        output_list = []
+                # Apply nonlinearity
+                self.fc_out = tf.nn.relu(self.fc_bn, name="relu")
+                
+            return self.fc_out
 
-        self.output = tf.stack(output_list, axis=0)
+        self.fc_out = _lstm()
 
         # Highway Layer
-        self.highway = highway(self.output, self.output.get_shape()[1], num_layers=1, bias=0, scope="Highway")
+        self.highway = highway(self.fc_out, self.fc_out.get_shape()[1], num_layers=1, bias=0, scope="Highway")
 
         # Add dropout
         with tf.name_scope("dropout"):
