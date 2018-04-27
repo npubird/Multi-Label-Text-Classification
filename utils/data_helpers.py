@@ -87,7 +87,10 @@ def cal_metric(predicted_labels, labels):
             count += 1
     rec = count / len(label_no_zero)
     acc = count / len(predicted_labels)
-    F = (2 * rec * acc) / (rec + acc)
+    if (rec + acc) == 0:
+        F = 0.0
+    else:
+        F = (2 * rec * acc) / (rec + acc)
     return rec, acc, F
 
 
