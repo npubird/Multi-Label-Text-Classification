@@ -75,7 +75,7 @@ def get_label_using_logits_and_classbind(logits, bind, top_number=1):
     return predicted_labels
 
 
-def cal_rec_and_acc(predicted_labels, labels):
+def cal_metric(predicted_labels, labels):
     label_no_zero = []
     for index, label in enumerate(labels):
         if int(label) == 1:
@@ -87,7 +87,8 @@ def cal_rec_and_acc(predicted_labels, labels):
             count += 1
     rec = count / len(label_no_zero)
     acc = count / len(predicted_labels)
-    return rec, acc
+    F = (2 * rec * acc) / (rec + acc)
+    return rec, acc, F
 
 
 def create_metadata_file(vocab_size, embedding_size, output_file=METADATA_DIR):
