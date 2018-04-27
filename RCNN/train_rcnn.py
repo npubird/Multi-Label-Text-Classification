@@ -250,7 +250,7 @@ def train_rcnn():
                 """Evaluates model on a validation set"""
                 batches_validation = batch_iter(
                     list(zip(x_validation, y_validation, y_validation_bind)), FLAGS.batch_size, FLAGS.num_epochs)
-                eval_loss, eval_rec, eval_acc, eval_counter = 0.0, 0.0, 0.0, 0
+                eval_loss, eval_rec, eval_acc, eval_F, eval_counter = 0.0, 0.0, 0.0, 0.0, 0
                 for batch_validation in batches_validation:
                     x_batch_validation, y_batch_validation, y_batch_validation_bind = zip(*batch_validation)
                     feed_dict = {
@@ -268,26 +268,32 @@ def train_rcnn():
                     if FLAGS.use_classbind_or_not == 'N':
                         predicted_labels = dh.get_label_using_logits(logits, top_number=FLAGS.top_num)
 
-                    cur_rec, cur_acc = 0.0, 0.0
+                    cur_rec, cur_acc, cur_F = 0.0, 0.0, 0.0
                     for index, predicted_label in enumerate(predicted_labels):
-                        rec_inc, acc_inc = dh.cal_rec_and_acc(predicted_label, y_batch_validation[index])
-                        cur_rec, cur_acc = cur_rec + rec_inc, cur_acc + acc_inc
+                        rec_inc, acc_inc, F_inc = dh.cal_metric(predicted_label, y_batch_validation[index])
+                        cur_rec, cur_acc, cur_F = cur_rec + rec_inc, cur_acc + acc_inc, cur_F + F_inc
 
                     cur_rec = cur_rec / len(y_batch_validation)
                     cur_acc = cur_acc / len(y_batch_validation)
+                    if (cur_rec + cur_acc) == 0:
+                        cur_F = 0.0
+                    else:
+                        cur_F = (2 * cur_rec * cur_acc) / (cur_rec + cur_acc)
 
-                    eval_loss, eval_rec, eval_acc, eval_counter = eval_loss + cur_loss, eval_rec + cur_rec, \
-                                                                  eval_acc + cur_acc, eval_counter + 1
-                    logger.info("✔︎ validation batch {0} finished.".format(eval_counter))
-
+                    eval_loss, eval_rec, eval_acc, eval_F, eval_counter = eval_loss + cur_loss, eval_rec + cur_rec, \
+                                                                          eval_acc + cur_acc, eval_F + cur_F, \
+                                                                          eval_counter + 1
+                    logger.info("✔︎ validation batch {0}: loss {1:g}, rec {2:g}, acc {3:g}, F {4:g}"
+                                .format(eval_counter, cur_loss, cur_rec, cur_acc, cur_F))
                     if writer:
                         writer.add_summary(summaries, step)
 
                 eval_loss = float(eval_loss / eval_counter)
                 eval_rec = float(eval_rec / eval_counter)
                 eval_acc = float(eval_acc / eval_counter)
+                eval_F = float(eval_F / eval_counter)
 
-                return eval_loss, eval_rec, eval_acc
+                return eval_loss, eval_rec, eval_acc, eval_F
 
             # Generate batches
             batches_train = batch_iter(
@@ -303,10 +309,10 @@ def train_rcnn():
 
                 if current_step % FLAGS.evaluate_every == 0:
                     logger.info("\nEvaluation:")
-                    eval_loss, eval_rec, eval_acc = validation_step(x_validation, y_validation, y_validation_bind,
-                                                                    writer=validation_summary_writer)
-                    logger.info("step {0}: loss {1:g}, rec {2:g}, acc {3:g}"
-                                .format(current_step, eval_loss, eval_rec, eval_acc))
+                    eval_loss, eval_rec, eval_acc, eval_F = validation_step(
+                        x_validation, y_validation, y_validation_bind, writer=validation_summary_writer)
+                    logger.info("step {0}: loss {1:g}, rec {2:g}, acc {3:g}, F {4:g}"
+                                .format(current_step, eval_loss, eval_rec, eval_acc, eval_F))
 
                 if current_step % FLAGS.checkpoint_every == 0:
                     checkpoint_prefix = os.path.join(checkpoint_dir, "model")
