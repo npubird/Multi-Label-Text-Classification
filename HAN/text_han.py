@@ -58,7 +58,7 @@ class TextHAN(object):
             self, sequence_length, num_classes, top_num, batch_size, vocab_size, hidden_size,
             embedding_size, embedding_type, l2_reg_lambda=0.0, pretrained_embedding=None):
 
-        # Placeholders for input, output and dropout
+        # Placeholders for input, output, dropout_prob and training_tag
         self.input_x = tf.placeholder(tf.int32, [None, sequence_length], name="input_x")
         self.input_y = tf.placeholder(tf.float32, [None, num_classes], name="input_y")
         self.dropout_keep_prob = tf.placeholder(tf.float32, name="dropout_keep_prob")
@@ -66,7 +66,7 @@ class TextHAN(object):
 
         self.global_step = tf.Variable(0, trainable=False, name="Global_Step")
 
-        # Embedding layer
+        # Embedding Layer
         with tf.device('/cpu:0'), tf.name_scope("embedding"):
             # Use random generated the word vector by default
             # Can also be obtained through our own word vectors trained by our corpus
@@ -81,16 +81,15 @@ class TextHAN(object):
                                                  dtype=tf.float32, name="embedding")
             self.embedded_sentence = tf.nn.embedding_lookup(self.embedding, self.input_x)
 
-        # Final scores and predictions
+        # Final scores
         with tf.name_scope("output"):
             W = tf.Variable(tf.truncated_normal(shape=[hidden_size, num_classes],
                                                 stddev=0.1, dtype=tf.float32), name="W")
             b = tf.Variable(tf.constant(0.1, shape=[num_classes], dtype=tf.float32), name="b")
             self.logits = tf.nn.xw_plus_b(self.embedded_sentence, W, b, name="logits")
             self.scores = tf.sigmoid(self.logits, name="scores")
-            self.topKPreds = tf.nn.top_k(self.scores, k=top_num, sorted=True, name="topKPreds")
 
-        # Calculate mean cross-entropy loss
+        # Calculate mean cross-entropy loss, L2 loss
         with tf.name_scope("loss"):
             losses = tf.nn.sigmoid_cross_entropy_with_logits(labels=self.input_y, logits=self.logits)
             losses = tf.reduce_mean(tf.reduce_sum(losses, axis=1), name="sigmoid_losses")
