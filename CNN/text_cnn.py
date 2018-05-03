@@ -150,7 +150,6 @@ class TextCNN(object):
             b = tf.Variable(tf.constant(0.1, shape=[num_classes], dtype=tf.float32), name="b")
             self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="logits")
             self.scores = tf.sigmoid(self.logits, name="scores")
-            self.topKPreds = tf.nn.top_k(self.scores, k=top_num, sorted=True, name="topKPreds")
 
         # Calculate mean cross-entropy loss
         with tf.name_scope("loss"):
