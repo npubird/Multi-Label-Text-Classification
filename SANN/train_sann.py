@@ -112,7 +112,6 @@ def train_sann():
             sann = TextSANN(
                 sequence_length=FLAGS.pad_seq_len,
                 num_classes=FLAGS.num_classes,
-                top_num=FLAGS.top_num,
                 vocab_size=VOCAB_SIZE,
                 lstm_hidden_size=FLAGS.lstm_hidden_size,
                 attention_unit_size=FLAGS.attention_unit_size,

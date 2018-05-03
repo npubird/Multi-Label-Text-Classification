@@ -110,7 +110,6 @@ def train_cnn():
             cnn = TextCNN(
                 sequence_length=FLAGS.pad_seq_len,
                 num_classes=FLAGS.num_classes,
-                top_num=FLAGS.top_num,
                 vocab_size=VOCAB_SIZE,
                 fc_hidden_size=FLAGS.fc_hidden_size,
                 embedding_size=FLAGS.embedding_dim,

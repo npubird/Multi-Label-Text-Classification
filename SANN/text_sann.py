@@ -158,7 +158,7 @@ class TextSANN(object):
     """A SANN for text classification."""
 
     def __init__(
-            self, sequence_length, num_classes, top_num, vocab_size, lstm_hidden_size, attention_unit_size,
+            self, sequence_length, num_classes, vocab_size, lstm_hidden_size, attention_unit_size,
             attention_hops_size, fc_hidden_size, embedding_size, embedding_type, l2_reg_lambda=0.0,
             pretrained_embedding=None):
 
