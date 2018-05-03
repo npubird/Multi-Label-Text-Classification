@@ -30,14 +30,26 @@ def logger_fn(name, file, level=logging.INFO):
     return tf_logger
 
 
-def create_prediction_file(file, data_id, all_predict_labels, all_predict_values):
+def create_prediction_file(file, data_id, all_predict_labels_ts, all_predict_values_ts):
+    """
+    Create the prediction file.
+
+    Args:
+        file: The all classes predicted scores provided by network
+        data_id: The data record id info provided by class Data
+        all_predict_labels_ts: The all predict labels by threshold
+        all_predict_values_ts: The all predict values by threshold
+    Raises:
+        IOError: If the prediction file is not a .json file
+    """
+    # TODO
     if not file.endswith('.json'):
-        logging.info('✘ The prediction file is not a json file. '
-                     'Please make sure the prediction data is a json file.')
+        raise IOError("✘ The prediction file is not a json file."
+                      "Please make sure the prediction data is a json file.")
     with open(file, 'w') as fout:
-        for index in range(len(all_predict_labels)):
-            predict_labels = [int(i) for i in all_predict_labels[index].tolist()]
-            predict_values = [round(i, 4) for i in all_predict_values[index].tolist()]
+        for index in range(len(all_predict_labels_ts)):
+            predict_labels = [int(i) for i in all_predict_labels_ts[index]]
+            predict_values = [round(i, 4) for i in all_predict_values_ts[index]]
             data_record = {
                 'testid': data_id[index],
                 'domain': predict_labels,
@@ -46,42 +58,77 @@ def create_prediction_file(file, data_id, all_predict_labels, all_predict_values
             fout.write(json.dumps(data_record, ensure_ascii=True) + '\n')
 
 
-def get_label_using_logits(logits, top_number=1):
-    logits = np.ndarray.tolist(logits)
+def get_label_using_scores_by_threshold(scores, threshold=0.5):
+    """
+    Get the predicted labels based on the threshold.
+    If there is no predict value greater than threshold, then choose the label which has the max predict value.
+
+    Args:
+        scores: The all classes predicted scores provided by network
+        threshold: The threshold (default: 0.5)
+    Returns:
+        predicted_labels: The predicted labels
+        predicted_values: The predicted values
+    """
     predicted_labels = []
-    for item in logits:
-        index_list = np.argsort(item)[-top_number:]
+    predicted_values = []
+    scores = np.ndarray.tolist(scores)
+    for score in scores:
+        count = 0
+        index_list = []
+        value_list = []
+        for index, predict_value in enumerate(score):
+            if predict_value > threshold:
+                index_list.append(index)
+                value_list.append(predict_value)
+                count += 1
+        if count == 0:
+            index_list.append(score.index(max(score)))
+            value_list.append(max(score))
+        predicted_labels.append(index_list)
+        predicted_values.append(value_list)
+    return predicted_labels, predicted_values
+
+
+def get_label_using_scores_by_topk(scores, top_num=1):
+    """
+    Get the predicted labels based on the topK number.
+
+    Args:
+        scores: The all classes predicted scores provided by network
+        top_num: The max topK number (default: 5)
+    Returns:
+        The predicted labels
+    """
+    predicted_labels = []
+    predicted_values = []
+    scores = np.ndarray.tolist(scores)
+    for score in scores:
+        value_list = []
+        index_list = np.argsort(score)[-top_num:]
         index_list = index_list[::-1]
+        for index in index_list:
+            value_list.append(score[index])
         predicted_labels.append(np.ndarray.tolist(index_list))
-    return predicted_labels
-
-
-def get_label_using_logits_and_classbind(logits, bind, top_number=1):
-    labels_bind =[]
-    predicted_labels = []
-    logits = np.ndarray.tolist(logits)
-    for index, item in enumerate(bind):
-        result = []
-        for i in item:
-            result.append((i, logits[index][i]))
-        labels_bind.append(result)
-    for item in labels_bind:
-        result = []
-        index_list = sorted(item, key=itemgetter(1), reverse=True)
-        index_list = index_list[:top_number]
-        for label in index_list:
-            result.append(label[0])
-        predicted_labels.append(result)
-    return predicted_labels
+        predicted_values.append(value_list)
+    return predicted_labels, predicted_values
 
 
 def cal_metric(predicted_labels, labels):
+    """
+    Calculate the metric(recall, accuracy, F, etc.).
+
+    Args:
+        predicted_labels: The predicted_labels
+        labels: The true labels
+    Returns:
+        The value of metric
+    """
     label_no_zero = []
     for index, label in enumerate(labels):
         if int(label) == 1:
             label_no_zero.append(index)
     count = 0
-    logging.info("predicted_labels:{}, origin_labels: {}".format(predicted_labels, label_no_zero))
     for predicted_label in predicted_labels:
         if int(predicted_label) in label_no_zero:
             count += 1
@@ -94,63 +141,71 @@ def cal_metric(predicted_labels, labels):
     return rec, acc, F
 
 
-def create_metadata_file(vocab_size, embedding_size, output_file=METADATA_DIR):
+def create_metadata_file(embedding_size, output_file=METADATA_DIR):
     """
     Create the metadata file based on the corpus file(Use for the Embedding Visualization later).
-    :param input_file: The corpus file
-    :param output_file: The metadata file (default: 'metadata.tsv')
+
+    Args:
+        embedding_size: The embedding size
+        output_file: The metadata file (default: 'metadata.tsv')
+    Raises:
+        IOError: If word2vec model file doesn't exist
     """
     word2vec_file = '../data/word2vec_' + str(embedding_size) + '.model'
 
-    if os.path.isfile(word2vec_file):
-        model = gensim.models.Word2Vec.load(word2vec_file)
-        word2idx = dict([(k, v.index) for k, v in model.wv.vocab.items()])
-        word2idx_sorted = [(k, word2idx[k]) for k in sorted(word2idx, key=word2idx.get, reverse=False)]
+    if not os.path.isfile(word2vec_file):
+        raise IOError("✘ The word2vec file doesn't exist."
+                      "Please use function <create_vocab_size(embedding_size)> to create it!")
 
-        with open(output_file, 'w+') as fout:
-            for word in word2idx_sorted:
-                if word[0] is None:
-                    logging.info("Emply Line, should replecaed by any thing else, or will cause a bug of tensorboard")
-                    fout.write('<Empty Line>' + '\n')
-                else:
-                    fout.write(word[0] + '\n')
-    else:
-        logging.info("✘ The word2vec file doesn't exist. "
-                     "Please use function <create_vocab_size(embedding_size)> to create it!")
+    model = gensim.models.Word2Vec.load(word2vec_file)
+    word2idx = dict([(k, v.index) for k, v in model.wv.vocab.items()])
+    word2idx_sorted = [(k, word2idx[k]) for k in sorted(word2idx, key=word2idx.get, reverse=False)]
+
+    with open(output_file, 'w+') as fout:
+        for word in word2idx_sorted:
+            if word[0] is None:
+                logging.info("Empty Line, should replaced by any thing else, or will cause a bug of tensorboard")
+                fout.write('<Empty Line>' + '\n')
+            else:
+                fout.write(word[0] + '\n')
 
 
 def create_word2vec_model(embedding_size, input_file=TEXT_DIR):
     """
     Create the word2vec model based on the given embedding size and the corpus file.
-    :param embedding_size: The embedding size
-    :param input_file: The corpus file
+
+    Args:
+        embedding_size: The embedding size
+        input_file: The corpus file
     """
     word2vec_file = '../data/word2vec_' + str(embedding_size) + '.model'
 
-    if os.path.isfile(word2vec_file):
-        logging.info('☛ The word2vec model you want create already exists!')
-    else:
-        sentences = word2vec.LineSentence(input_file)
-        # sg=0 means use CBOW model(default); sg=1 means use skip-gram model.
-        model = gensim.models.Word2Vec(sentences, size=embedding_size, min_count=0,
-                                       sg=0, workers=multiprocessing.cpu_count())
-        model.save(word2vec_file)
+    sentences = word2vec.LineSentence(input_file)
+    # sg=0 means use CBOW model(default); sg=1 means use skip-gram model.
+    model = gensim.models.Word2Vec(sentences, size=embedding_size, min_count=0,
+                                   sg=0, workers=multiprocessing.cpu_count())
+    model.save(word2vec_file)
 
 
 def load_vocab_size(embedding_size):
     """
     Return the vocab size of the word2vec file.
-    :param embedding_size: The embedding size
-    :return: The vocab size of the word2vec file
+
+    Args:
+        embedding_size: The embedding size
+    Return:
+        The vocab size of the word2vec file
+    Raises:
+        IOError: If word2vec model file doesn't exist
     """
     word2vec_file = '../data/word2vec_' + str(embedding_size) + '.model'
 
-    if os.path.isfile(word2vec_file):
-        model = word2vec.Word2Vec.load(word2vec_file)
-        return len(model.wv.vocab.items())
-    else:
-        logging.info("✘ The word2vec file doesn't exist. "
-                     "Please use function <create_vocab_size(embedding_size)> to create it!")
+    if not os.path.isfile(word2vec_file):
+        raise IOError("✘ The word2vec file doesn't exist."
+                      "Please use function <create_vocab_size(embedding_size)> to create it!")
+
+    model = word2vec.Word2Vec.load(word2vec_file)
+    return len(model.wv.vocab.items())
 
 
 def data_augmented(data_tokenindex, data_labels):
@@ -199,9 +254,15 @@ def data_word2vec(input_file, num_labels, word2vec_model):
     """
     Create the research data tokenindex based on the word2vec model file.
     Returns the class Data(includes the data tokenindex and data labels).
-    :param input_file: The research data
-    :param word2vec_model: The word2vec model file
-    :return: The class Data(includes the data tokenindex and data labels)
+
+    Args:
+        input_file: The research data
+        num_labels: The number of classes
+        word2vec_model: The word2vec model file
+    Returns:
+        The class Data(includes the data tokenindex and data labels)
+    Raises:
+        IOError: If the input file is not the .json file
     """
     vocab = dict([(k, v.index) for (k, v) in word2vec_model.wv.vocab.items()])
 
@@ -220,102 +281,109 @@ def data_word2vec(input_file, num_labels, word2vec_model):
             label[int(item)] = 1
         return label
 
-    if input_file.endswith('.json'):
-        with open(input_file) as fin:
-            testid = []
-            content_indexlist = []
-            labels = []
-            labels_bind = []
-            for index, eachline in enumerate(fin):
-                content = []
-                data = json.loads(eachline)
-                test_id = data['testid']
-                features_content = data['features_content'].strip().split()
-                label_index = data['knows_index'].strip().split()
+    if not input_file.endswith('.json'):
+        raise IOError("✘ The research data is not a json file. "
+                      "Please preprocess the research data into the json file.")
+    with open(input_file) as fin:
+        testid = []
+        content_indexlist = []
+        labels = []
+        labels_bind = []
+        for index, eachline in enumerate(fin):
+            content = []
+            data = json.loads(eachline)
+            test_id = data['testid']
+            features_content = data['features_content'].strip().split()
+            label_index = data['knows_index'].strip().split()
 
-                testid.append(test_id)
+            testid.append(test_id)
 
-                for item in features_content:
-                    content.append(item)
+            for item in features_content:
+                content.append(item)
 
-                labels.append(create_label(label_index))
-                content_indexlist.append(token_to_index(content))
+            labels.append(create_label(label_index))
+            content_indexlist.append(token_to_index(content))
 
-                if 'knows_bind' in data.keys():
-                    labels_bind.append(data['knows_bind'])
+            if 'knows_bind' in data.keys():
+                labels_bind.append(data['knows_bind'])
 
-            total_line = index + 1
+        total_line = index + 1
 
-        class Data:
-            def __init__(self):
-                pass
+    class Data:
+        def __init__(self):
+            pass
 
-            @property
-            def testid(self):
-                return testid
+        @property
+        def testid(self):
+            return testid
 
-            @property
-            def number(self):
-                return total_line
+        @property
+        def number(self):
+            return total_line
 
-            @property
-            def tokenindex(self):
-                return content_indexlist
+        @property
+        def tokenindex(self):
+            return content_indexlist
 
-            @property
-            def labels(self):
-                return labels
+        @property
+        def labels(self):
+            return labels
 
-            @property
-            def labels_bind(self):
-                if labels_bind:
-                    return labels_bind
-                else:
-                    return None
+        @property
+        def labels_bind(self):
+            if labels_bind:
+                return labels_bind
+            else:
+                return None
 
-        return Data()
-    else:
-        logging.info('✘ The research data is not a json file. '
-                     'Please preprocess the research data into the json file.')
+    return Data()
 
 
 def load_word2vec_matrix(vocab_size, embedding_size):
     """
     Return the word2vec model matrix.
-    :param vocab_size: The vocab size of the word2vec model file
-    :param embedding_size: The embedding size
-    :return: The word2vec model matrix
+
+    Args:
+        vocab_size: The vocab size of the word2vec model file
+        embedding_size: The embedding size
+    Return:
+        The word2vec model matrix
+    Raise:
+        IOError: If word2vec model file doesn't exist
     """
     word2vec_file = '../data/word2vec_' + str(embedding_size) + '.model'
 
-    if os.path.isfile(word2vec_file):
-        model = gensim.models.Word2Vec.load(word2vec_file)
-        vocab = dict([(k, v.index) for k, v in model.wv.vocab.items()])
-        vector = np.zeros([vocab_size, embedding_size])
-        for key, value in vocab.items():
-            if len(key) > 0:
-                vector[value] = model[key]
-        return vector
-    else:
-        logging.info("✘ The word2vec file doesn't exist. "
-                     "Please use function <create_vocab_size(embedding_size)> to create it!")
+    if not os.path.isfile(word2vec_file):
+        raise IOError("✘ The word2vec file doesn't exist. "
+                      "Please use function <create_vocab_size(embedding_size)> to create it!")
+    model = gensim.models.Word2Vec.load(word2vec_file)
+    vocab = dict([(k, v.index) for k, v in model.wv.vocab.items()])
+    vector = np.zeros([vocab_size, embedding_size])
+    for key, value in vocab.items():
+        if len(key) > 0:
+            vector[value] = model[key]
+    return vector
 
 
 def load_data_and_labels(data_file, num_labels, embedding_size):
     """
     Loads research data from files, splits the data into words and generates labels.
     Returns split sentences, labels and the max sentence length of the research data.
-    :param data_file: The research data
-    :param embedding_size: The embedding size
-    :returns: The class data and the max sentence length of the research data
+
+    Args:
+        data_file: The research data
+        num_labels: The number of classes
+        embedding_size: The embedding size
+    Returns:
+        The class Data
     """
     word2vec_file = '../data/word2vec_' + str(embedding_size) + '.model'
 
     # Load word2vec model file
-    if os.path.isfile(word2vec_file):
-        model = word2vec.Word2Vec.load(word2vec_file)
-    else:
+    if not os.path.isfile(word2vec_file):
         create_word2vec_model(embedding_size, TEXT_DIR)
+
+    model = word2vec.Word2Vec.load(word2vec_file)
 
     # Load data from files and split by words
     data = data_word2vec(input_file=data_file, num_labels=num_labels, word2vec_model=model)
@@ -333,9 +401,13 @@ def pad_data(data, pad_seq_len):
     """
     Padding each sentence of research data according to the max sentence length.
     Returns the padded data and data labels.
-    :param data: The research data
-    :param max_seq_len: The max sentence length of research data
-    :returns: The padded data and data labels
+
+    Args:
+        data: The research data
+        pad_seq_len: The max sentence length of research data
+    Returns:
+        pad_data: The padded data
+        labels: The data labels
     """
     pad_data = pad_sequences(data.tokenindex, maxlen=pad_seq_len, value=0.)
     labels = data.labels
@@ -345,9 +417,11 @@ def pad_data(data, pad_seq_len):
 def plot_seq_len(data_file, data, percentage=0.98):
     """
     Visualizing the sentence length of each data sentence.
-    :param data_file: The data_file
-    :param data: The class Data (includes the data tokenindex and data labels)
-    :param percentage: The percentage of the total data you want to show
+
+    Args:
+        data_file: The data_file
+        data: The class Data (includes the data tokenindex and data labels)
+        percentage: The percentage of the total data you want to show
     """
     output_file = '../data/data_analysis/' + data_file.split('.')[0] + ' Sequence Length Distribution Histogram.png'
     result = dict()
@@ -383,12 +457,15 @@ def batch_iter(data, batch_size, num_epochs, shuffle=True):
     """
     含有 yield 说明不是一个普通函数，是一个 Generator.
     函数效果：对 data，一共分成 num_epochs 个阶段（epoch），在每个 epoch 内，如果 shuffle=True，就将 data 重新洗牌，
-    批量生成 (yield) 一批一批的重洗过的data，每批大小是 batch_size，一共生成 int(len(data)/batch_size)+1 批。
-    Generate a  batch iterator for a dataset.
-    :param data: The data
-    :param batch_size: The size of the data batch
-    :param num_epochs: The number of epoches
-    :param shuffle: Shuffle or not
+    批量生成 (yield) 一批一批的重洗过的 data，每批大小是 batch_size，一共生成 int(len(data)/batch_size)+1 批。
+
+    Args:
+        data: The data
+        batch_size: The size of the data batch
+        num_epochs: The number of epochs
+        shuffle: Shuffle or not (default: True)
+    Returns:
+        A batch iterator for data set
     """
     data = np.array(data)
     data_size = len(data)
