@@ -3,6 +3,7 @@ __author__ = 'Randolph'
 
 import numpy as np
 import tensorflow as tf
+import tflearn
 
 from tensorflow.python.ops import array_ops
 from tensorflow import sigmoid
@@ -161,7 +162,7 @@ class TextSANN(object):
             attention_hops_size, fc_hidden_size, embedding_size, embedding_type, l2_reg_lambda=0.0,
             pretrained_embedding=None):
 
-        # Placeholders for input, output and dropout
+        # Placeholders for input, output, dropout_prob and training_tag
         self.input_x = tf.placeholder(tf.int32, [None, sequence_length], name="input_x")
         self.input_y = tf.placeholder(tf.float32, [None, num_classes], name="input_y")
         self.dropout_keep_prob = tf.placeholder(tf.float32, name="dropout_keep_prob")
@@ -169,7 +170,7 @@ class TextSANN(object):
 
         self.global_step = tf.Variable(0, trainable=False, name="Global_Step")
 
-        # Embedding layer
+        # Embedding Layer
         with tf.device('/cpu:0'), tf.name_scope("embedding"):
             # Use random generated the word vector by default
             # Can also be obtained through our own word vectors trained by our corpus
@@ -202,29 +203,42 @@ class TextSANN(object):
                                                              self.embedded_sentence, dtype=tf.float32)
 
         # Concat output
-        self.lstm_concat = tf.concat(outputs, axis=2)  # [batch_size, sequence_length, hidden_size*2]
-        self.lstm_out = tf.reduce_mean(self.lstm_concat, axis=1)  # [batch_size, hidden_size*2]
+        self.lstm_out = tf.concat(outputs, axis=2)  # [batch_size, sequence_length, lstm_hidden_size*2]
 
-        # Attention
+        # Add attention
         with tf.name_scope("attention"):
             W_s1 = tf.Variable(tf.truncated_normal(shape=[attention_unit_size, lstm_hidden_size*2],
                                                    stddev=0.1, dtype=tf.float32), name="W_s1")
             W_s2 = tf.Variable(tf.truncated_normal(shape=[attention_hops_size, attention_unit_size],
                                                    stddev=0.1, dtype=tf.float32), name="W_s2")
-            
+            self.attention = tf.map_fn(
+                fn=lambda x: tf.matmul(W_s2, x),
+                elems=tf.tanh(
+                    tf.map_fn(
+                        fn=lambda x: tf.matmul(W_s1, tf.transpose(x)),
+                        elems=self.lstm_out,
+                        dtype=tf.float32
+                    )
+                )
+            )
+            self.attention_out = tf.nn.softmax(self.attention)  # [batch_size, attention_hops_size, sequence_length]
+
+        self.M = tf.matmul(self.attention_out, self.lstm_out)  # [batch_size, attention_hops_size, lstm_hidden_size*2]
+        self.M_flat = tf.reshape(self.M, [-1, attention_hops_size*lstm_hidden_size*2])  # [batch_size, attention_hops_size*lstm_hidden_size*2]
 
         # Fully Connected Layer
         with tf.name_scope("fc"):
-            W = tf.Variable(tf.truncated_normal(shape=[lstm_hidden_size*2, fc_hidden_size],
-                                                stddev=0.1, dtype=tf.float32), name="W")
-            b = tf.Variable(tf.constant(0.1, shape=[fc_hidden_size], dtype=tf.float32), name="b")
-            self.fc = tf.nn.xw_plus_b(self.lstm_out, W, b)
-
-            # Batch Normalization Layer
-            self.fc_bn = tf.layers.batch_normalization(self.fc, training=self.is_training)
-
-            # Apply nonlinearity
-            self.fc_out = tf.nn.relu(self.fc_bn, name="relu")
+            self.fc_out = tflearn.fully_connected(self.M, fc_hidden_size, activation="relu")
+        #     W = tf.Variable(tf.truncated_normal(shape=[attention_hops_size*lstm_hidden_size*2, fc_hidden_size],
+        #                                         stddev=0.1, dtype=tf.float32), name="W")
+        #     b = tf.Variable(tf.constant(0.1, shape=[fc_hidden_size], dtype=tf.float32), name="b")
+        #     self.fc = tf.nn.xw_plus_b(self.M_flat, W, b)
+        #
+        #     # Batch Normalization Layer
+        #     self.fc_bn = tf.layers.batch_normalization(self.fc, training=self.is_training)
+        #
+        #     # Apply nonlinearity
+        #     self.fc_out = tf.nn.relu(self.fc_bn, name="relu")
 
         # Highway Layer
         self.highway = highway(self.fc_out, self.fc_out.get_shape()[1], num_layers=1, bias=0, scope="Highway")
@@ -233,16 +247,15 @@ class TextSANN(object):
         with tf.name_scope("dropout"):
             self.h_drop = tf.nn.dropout(self.highway, self.dropout_keep_prob)
 
-        # Final scores and predictions
+        # Final scores
         with tf.name_scope("output"):
             W = tf.Variable(tf.truncated_normal(shape=[fc_hidden_size, num_classes],
                                                 stddev=0.1, dtype=tf.float32), name="W")
             b = tf.Variable(tf.constant(0.1, shape=[num_classes], dtype=tf.float32), name="b")
             self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="logits")
             self.scores = tf.sigmoid(self.logits, name="scores")
-            self.topKPreds = tf.nn.top_k(self.scores, k=top_num, sorted=True, name="topKPreds")
 
-        # Calculate mean cross-entropy loss
+        # Calculate mean cross-entropy loss, L2 loss and attention penalization loss
         with tf.name_scope("loss"):
             losses = tf.nn.sigmoid_cross_entropy_with_logits(labels=self.input_y, logits=self.logits)
             losses = tf.reduce_mean(tf.reduce_sum(losses, axis=1), name="sigmoid_losses")

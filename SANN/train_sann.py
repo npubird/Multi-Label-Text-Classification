@@ -8,7 +8,7 @@ import logging
 import tensorflow as tf
 
 from utils import data_helpers as dh
-from text_rnn import TextRNN
+from text_sann import TextSANN
 from tensorboard.plugins import projector
 
 # Parameters
@@ -22,20 +22,13 @@ logging.info('✔︎ The format of your input is legal, now loading to next step
 
 TRAIN_OR_RESTORE = TRAIN_OR_RESTORE.upper()
 
-CLASS_BIND = input("☛ Use Class Bind or Not?(Y/N) \n")
-while not (CLASS_BIND.isalpha() and CLASS_BIND.upper() in ['Y', 'N']):
-    CLASS_BIND = input('✘ The format of your input is illegal, please re-input: ')
-logging.info('✔︎ The format of your input is legal, now loading to next step...')
-
-CLASS_BIND = CLASS_BIND.upper()
-
 if TRAIN_OR_RESTORE == 'T':
     logger = dh.logger_fn('tflog', 'logs/training-{0}.log'.format(time.asctime()))
 if TRAIN_OR_RESTORE == 'R':
     logger = dh.logger_fn('tflog', 'logs/restore-{0}.log'.format(time.asctime()))
 
 TRAININGSET_DIR = '../data/Train.json'
-VALIDATIONSET_DIR = '../data/Validation_bind.json'
+VALIDATIONSET_DIR = '../data/Validation.json'
 METADATA_DIR = '../data/metadata.tsv'
 
 # Data Parameters
@@ -44,7 +37,6 @@ tf.flags.DEFINE_string("validation_data_file", VALIDATIONSET_DIR, "Data source f
 tf.flags.DEFINE_string("metadata_file", METADATA_DIR, "Metadata file for embedding visualization"
                                                       "(Each line is a word segment in metadata_file).")
 tf.flags.DEFINE_string("train_or_restore", TRAIN_OR_RESTORE, "Train or Restore.")
-tf.flags.DEFINE_string("use_classbind_or_not", CLASS_BIND, "Use the class bind info or not.")
 
 # Model Hyperparameters
 tf.flags.DEFINE_float("learning_rate", 0.001, "The learning rate (default: 0.001)")
@@ -54,16 +46,18 @@ tf.flags.DEFINE_integer("embedding_type", 1, "The embedding type (default: 1)")
 tf.flags.DEFINE_integer("lstm_hidden_size", 256, "Hidden size for bi-lstm layer(default: 256)")
 tf.flags.DEFINE_integer("attention_unit_size", 350, "Attention unit size(default: 350)")
 tf.flags.DEFINE_integer("attention_hops_size", 30, "Attention hops size(default: 30)")
+tf.flags.DEFINE_boolean("attention_penalization", True, "Use penalization or not(default: True)")
 tf.flags.DEFINE_integer("fc_hidden_size", 1024, "Hidden size for fully connected layer (default: 1024)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 0.0)")
 tf.flags.DEFINE_integer("num_classes", 367, "Number of labels (depends on the task)")
-tf.flags.DEFINE_integer("top_num", 3, "Number of top K prediction classes (default: 3)")
+tf.flags.DEFINE_integer("top_num", 5, "Number of top K prediction classes (default: 5)")
+tf.flags.DEFINE_float("threshold", 0.5, "Threshold for prediction classes (default: 0.5)")
 
 # Training Parameters
 tf.flags.DEFINE_integer("batch_size", 512, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer("num_epochs", 200, "Number of training epochs (default: 200)")
-tf.flags.DEFINE_integer("evaluate_every", 5000, "Evaluate model on dev set after this many steps (default: 100)")
+tf.flags.DEFINE_integer("evaluate_every", 10000, "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_float("norm_ratio", 2, "The ratio of the sum of gradients norms of trainable variable (default: 1.25)")
 tf.flags.DEFINE_integer("decay_steps", 5000, "how many steps before decay learning rate.")
 tf.flags.DEFINE_float("decay_rate", 0.5, "Rate of decay for learning rate.")
@@ -82,7 +76,7 @@ logger.info('\n'.join([dilim, *['{0:>50}|{1:<50}'.format(attr.upper(), FLAGS.__g
                                 for attr in sorted(FLAGS.__dict__['__wrapped'])], dilim]))
 
 
-def train_rnn():
+def train_sann():
     """Training RNN model."""
 
     # Load sentences, labels, and training parameters
@@ -103,13 +97,11 @@ def train_rnn():
     logger.info('✔︎ Validation data padding...')
     x_validation, y_validation = dh.pad_data(validation_data, FLAGS.pad_seq_len)
 
-    y_validation_bind = validation_data.labels_bind
-
     # Build vocabulary
     VOCAB_SIZE = dh.load_vocab_size(FLAGS.embedding_dim)
     pretrained_word2vec_matrix = dh.load_word2vec_matrix(VOCAB_SIZE, FLAGS.embedding_dim)
 
-    # Build a graph and rnn object
+    # Build a graph and sann object
     with tf.Graph().as_default():
         session_conf = tf.ConfigProto(
             allow_soft_placement=FLAGS.allow_soft_placement,
@@ -117,12 +109,12 @@ def train_rnn():
         session_conf.gpu_options.allow_growth = FLAGS.gpu_options_allow_growth
         sess = tf.Session(config=session_conf)
         with sess.as_default():
-            rnn = TextRNN(
+            sann = TextSANN(
                 sequence_length=FLAGS.pad_seq_len,
                 num_classes=FLAGS.num_classes,
                 top_num=FLAGS.top_num,
                 vocab_size=VOCAB_SIZE,
-                hidden_size=FLAGS.lstm_hidden_size,
+                lstm_hidden_size=FLAGS.lstm_hidden_size,
                 attention_unit_size=FLAGS.attention_unit_size,
                 attention_hops_size=FLAGS.attention_hops_size,
                 fc_hidden_size=FLAGS.fc_hidden_size,
@@ -137,9 +129,9 @@ def train_rnn():
             #                                            staircase=True)
             with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
                 optimizer = tf.train.AdamOptimizer(FLAGS.learning_rate)
-                grads, vars = zip(*optimizer.compute_gradients(rnn.loss))
+                grads, vars = zip(*optimizer.compute_gradients(sann.loss))
                 grads, _ = tf.clip_by_global_norm(grads, clip_norm=FLAGS.norm_ratio)
-                train_op = optimizer.apply_gradients(zip(grads, vars), global_step=rnn.global_step, name="train_op")
+                train_op = optimizer.apply_gradients(zip(grads, vars), global_step=sann.global_step, name="train_op")
 
             # Keep track of gradient values and sparsity (optional)
             grad_summaries = []
@@ -170,8 +162,7 @@ def train_rnn():
                 logger.info("✔︎ Writing to {0}\n".format(out_dir))
 
             # Summaries for loss and accuracy
-            loss_summary = tf.summary.scalar("loss", rnn.loss)
-            # acc_summary = tf.summary.scalar("accuracy", rnn.accuracy)
+            loss_summary = tf.summary.scalar("loss", sann.loss)
 
             # Train summaries
             train_summary_op = tf.summary.merge([loss_summary, grad_summaries_merged])
@@ -186,7 +177,7 @@ def train_rnn():
             saver = tf.train.Saver(tf.global_variables(), max_to_keep=FLAGS.num_checkpoints)
 
             if FLAGS.train_or_restore == 'R':
-                # Load rnn model
+                # Load sann model
                 logger.info("✔ Loading model...")
                 checkpoint_file = tf.train.latest_checkpoint(checkpoint_dir)
                 logger.info(checkpoint_file)
@@ -213,85 +204,119 @@ def train_rnn():
                 # Save the embedding visualization
                 saver.save(sess, os.path.join(out_dir, 'embedding', 'embedding.ckpt'))
 
-            current_step = sess.run(rnn.global_step)
+            current_step = sess.run(sann.global_step)
 
             def train_step(x_batch, y_batch):
                 """A single training step"""
                 feed_dict = {
-                    rnn.input_x: x_batch,
-                    rnn.input_y: y_batch,
-                    rnn.dropout_keep_prob: FLAGS.dropout_keep_prob,
-                    rnn.is_training: True
+                    sann.input_x: x_batch,
+                    sann.input_y: y_batch,
+                    sann.dropout_keep_prob: FLAGS.dropout_keep_prob,
+                    sann.is_training: True
                 }
                 _, step, summaries, loss = sess.run(
-                    [train_op, rnn.global_step, train_summary_op, rnn.loss], feed_dict)
+                    [train_op, sann.global_step, train_summary_op, sann.loss], feed_dict)
                 logger.info("step {0}: loss {1:g}".format(step, loss))
                 train_summary_writer.add_summary(summaries, step)
 
-            def validation_step(x_validation, y_validation, y_validation_bind, writer=None):
+            def validation_step(x_validation, y_validation, writer=None):
                 """Evaluates model on a validation set"""
                 batches_validation = dh.batch_iter(
-                    list(zip(x_validation, y_validation, y_validation_bind)), FLAGS.batch_size, FLAGS.num_epochs)
-                eval_counter, eval_loss = 0, 0.0
-                eval_rec = [0.0] * FLAGS.top_num
-                eval_acc = [0.0] * FLAGS.top_num
-                eval_F = [0.0] * FLAGS.top_num
+                    list(zip(x_validation, y_validation)), 8 * FLAGS.batch_size, FLAGS.num_epochs)
+
+                # Predict classes by threshold or topk ('ts': threshold; 'tk': topk)
+                eval_counter, eval_loss, eval_rec_ts, eval_acc_ts, eval_F_ts = 0, 0.0, 0.0, 0.0, 0.0
+                eval_rec_tk = [0.0] * FLAGS.top_num
+                eval_acc_tk = [0.0] * FLAGS.top_num
+                eval_F_tk = [0.0] * FLAGS.top_num
+
                 for batch_validation in batches_validation:
-                    x_batch_validation, y_batch_validation, y_batch_validation_bind = zip(*batch_validation)
-                    topK_predicted_labels = []
+                    x_batch_validation, y_batch_validation = zip(*batch_validation)
                     feed_dict = {
-                        rnn.input_x: x_batch_validation,
-                        rnn.input_y: y_batch_validation,
-                        rnn.dropout_keep_prob: 1.0,
-                        rnn.is_training: False
+                        sann.input_x: x_batch_validation,
+                        sann.input_y: y_batch_validation,
+                        sann.dropout_keep_prob: 1.0,
+                        sann.is_training: False
                     }
-                    step, summaries, logits, cur_loss = sess.run(
-                        [rnn.global_step, validation_summary_op, rnn.logits, rnn.loss], feed_dict)
+                    step, summaries, scores, cur_loss = sess.run(
+                        [sann.global_step, validation_summary_op, sann.scores, sann.loss], feed_dict)
 
-                    if FLAGS.use_classbind_or_not == 'Y':
-                        for top_num in range(FLAGS.top_num):
-                            predicted_labels = dh.get_label_using_logits_and_classbind(
-                                logits, y_batch_validation_bind, top_number=top_num + 1)
-                            topK_predicted_labels.append(predicted_labels)
-                    if FLAGS.use_classbind_or_not == 'N':
-                        for top_num in range(FLAGS.top_num):
-                            predicted_labels = dh.get_label_using_logits(logits, top_number=top_num + 1)
-                            topK_predicted_labels.append(predicted_labels)
+                    # Predict by threshold
+                    predicted_labels_threshold, predicted_values_threshold = \
+                        dh.get_label_using_scores_by_threshold(scores=scores, threshold=FLAGS.threshold)
 
-                    cur_rec = [0.0] * FLAGS.top_num
-                    cur_acc = [0.0] * FLAGS.top_num
-                    cur_F = [0.0] * FLAGS.top_num
-                    for top_num, predicted_labels in enumerate(topK_predicted_labels):
-                        for index, predicted_label in enumerate(predicted_labels):
-                            rec_inc, acc_inc, F_inc = dh.cal_metric(predicted_label, y_batch_validation[index])
-                            cur_rec[top_num], cur_acc[top_num], cur_F[top_num] = \
-                                cur_rec[top_num] + rec_inc, cur_acc[top_num] + acc_inc, cur_F[top_num] + F_inc
+                    cur_rec_ts, cur_acc_ts, cur_F_ts = 0.0, 0.0, 0.0
 
-                        cur_rec[top_num] = cur_rec[top_num] / len(y_batch_validation)
-                        cur_acc[top_num] = cur_acc[top_num] / len(y_batch_validation)
-                        cur_F[top_num] = cur_F[top_num] / len(y_batch_validation)
+                    for index, predicted_label_threshold in enumerate(predicted_labels_threshold):
+                        rec_inc_ts, acc_inc_ts, F_inc_ts = dh.cal_metric(predicted_label_threshold,
+                                                                         y_batch_validation[index])
+                        cur_rec_ts, cur_acc_ts, cur_F_ts = cur_rec_ts + rec_inc_ts, \
+                                                           cur_acc_ts + acc_inc_ts, \
+                                                           cur_F_ts + F_inc_ts
 
-                        eval_rec[top_num], eval_acc[top_num], eval_F[top_num] = \
-                            eval_rec[top_num] + cur_rec[top_num], eval_acc[top_num] + cur_acc[top_num], \
-                            eval_F[top_num] + cur_F[top_num]
+                    cur_rec_ts = cur_rec_ts / len(y_batch_validation)
+                    cur_acc_ts = cur_acc_ts / len(y_batch_validation)
+                    cur_F_ts = cur_F_ts / len(y_batch_validation)
+
+                    eval_rec_ts, eval_acc_ts, eval_F_ts = eval_rec_ts + cur_rec_ts, \
+                                                          eval_acc_ts + cur_acc_ts, \
+                                                          eval_F_ts + cur_F_ts
+
+                    # Predict by topK
+                    topK_predicted_labels = []
+                    for top_num in range(FLAGS.top_num):
+                        predicted_labels_topk, predicted_values_topk = \
+                            dh.get_label_using_scores_by_topk(scores=scores, top_num=top_num+1)
+                        topK_predicted_labels.append(predicted_labels_topk)
+
+                    cur_rec_tk = [0.0] * FLAGS.top_num
+                    cur_acc_tk = [0.0] * FLAGS.top_num
+                    cur_F_tk = [0.0] * FLAGS.top_num
+
+                    for top_num, predicted_labels_topK in enumerate(topK_predicted_labels):
+                        for index, predicted_label_topK in enumerate(predicted_labels_topK):
+                            rec_inc_tk, acc_inc_tk, F_inc_tk = dh.cal_metric(predicted_label_topK,
+                                                                             y_batch_validation[index])
+                            cur_rec_tk[top_num], cur_acc_tk[top_num], cur_F_tk[top_num] = \
+                                cur_rec_tk[top_num] + rec_inc_tk, \
+                                cur_acc_tk[top_num] + acc_inc_tk, \
+                                cur_F_tk[top_num] + F_inc_tk
+
+                        cur_rec_tk[top_num] = cur_rec_tk[top_num] / len(y_batch_validation)
+                        cur_acc_tk[top_num] = cur_acc_tk[top_num] / len(y_batch_validation)
+                        cur_F_tk[top_num] = cur_F_tk[top_num] / len(y_batch_validation)
+
+                        eval_rec_tk[top_num], eval_acc_tk[top_num], eval_F_tk[top_num] = \
+                            eval_rec_tk[top_num] + cur_rec_tk[top_num], \
+                            eval_acc_tk[top_num] + cur_acc_tk[top_num], \
+                            eval_F_tk[top_num] + cur_F_tk[top_num]
 
                     eval_loss = eval_loss + cur_loss
                     eval_counter = eval_counter + 1
 
-                    logger.info("✔︎ validation batch {0}: loss {1:g}".format(eval_counter, eval_loss))
-                    # for top_num in range(FLAGS.top_num):
-                    #     logger.info("Top{0}: Recall {1:g}, Accuracy {2:g}, F {3:g}"
-                    #                 .format(top_num + 1, cur_rec[top_num], cur_acc[top_num], cur_F[top_num]))
+                    logger.info("✔︎ validation batch {0}: loss {1:g}".format(eval_counter, cur_loss))
+                    logger.info("︎☛ Predict by threshold: recall {0:g}, accuracy {1:g}, F {2:g}"
+                                .format(cur_rec_ts, cur_acc_ts, cur_F_ts))
+
+                    logger.info("︎☛ Predict by topK:")
+                    for top_num in range(FLAGS.top_num):
+                        logger.info("Top{0}: recall {1:g}, accuracy {2:g}, F {3:g}"
+                                    .format(top_num + 1, cur_rec_tk[top_num], cur_acc_tk[top_num], cur_F_tk[top_num]))
+
                     if writer:
                         writer.add_summary(summaries, step)
 
                 eval_loss = float(eval_loss / eval_counter)
-                for top_num in range(FLAGS.top_num):
-                    eval_rec[top_num] = float(eval_rec[top_num] / eval_counter)
-                    eval_acc[top_num] = float(eval_acc[top_num] / eval_counter)
-                    eval_F[top_num] = float(eval_F[top_num] / eval_counter)
+                eval_rec_ts = float(eval_rec_ts / eval_counter)
+                eval_acc_ts = float(eval_acc_ts / eval_counter)
+                eval_F_ts = float(eval_F_ts / eval_counter)
 
-                return eval_loss, eval_rec, eval_acc, eval_F
+                for top_num in range(FLAGS.top_num):
+                    eval_rec_tk[top_num] = float(eval_rec_tk[top_num] / eval_counter)
+                    eval_acc_tk[top_num] = float(eval_acc_tk[top_num] / eval_counter)
+                    eval_F_tk[top_num] = float(eval_F_tk[top_num] / eval_counter)
+
+                return eval_loss, eval_rec_ts, eval_acc_ts, eval_F_ts, eval_rec_tk, eval_acc_tk, eval_F_tk
 
             # Generate batches
             batches_train = dh.batch_iter(
@@ -303,21 +328,28 @@ def train_rnn():
             for batch_train in batches_train:
                 x_batch_train, y_batch_train = zip(*batch_train)
                 train_step(x_batch_train, y_batch_train)
-                current_step = tf.train.global_step(sess, rnn.global_step)
+                current_step = tf.train.global_step(sess, sann.global_step)
 
                 if current_step % FLAGS.evaluate_every == 0:
                     logger.info("\nEvaluation:")
-                    eval_loss, eval_rec, eval_acc, eval_F = validation_step(
-                        x_validation, y_validation, y_validation_bind, writer=validation_summary_writer)
-                    logger.info("step {0}: loss {1:g}".format(current_step. eval_loss))
+                    eval_loss, eval_rec_ts, eval_acc_ts, eval_F_ts, eval_rec_tk, eval_acc_tk, eval_F_tk = \
+                        validation_step(x_validation, y_validation, writer=validation_summary_writer)
+
+                    logger.info("All Validation set: Loss {0:g}".format(eval_loss))
+
+                    # Predict by threshold
+                    logger.info("︎☛ Predict by threshold: Recall {0:g}, Accuracy {1:g}, F {2:g}"
+                                .format(eval_rec_ts, eval_acc_ts, eval_F_ts))
+
+                    # Predict by topK
+                    logger.info("︎☛ Predict by topK:")
                     for top_num in range(FLAGS.top_num):
                         logger.info("Top{0}: Recall {1:g}, Accuracy {2:g}, F {3:g}"
-                                    .format(top_num + 1, eval_rec[top_num], eval_acc[top_num], eval_F[top_num]))
+                                    .format(top_num+1, eval_rec_tk[top_num], eval_acc_tk[top_num], eval_F_tk[top_num]))
                 if current_step % FLAGS.checkpoint_every == 0:
                     checkpoint_prefix = os.path.join(checkpoint_dir, "model")
                     path = saver.save(sess, checkpoint_prefix, global_step=current_step)
                     logger.info("✔︎ Saved model checkpoint to {0}\n".format(path))
-
                 if current_step % num_batches_per_epoch == 0:
                     current_epoch = current_step // num_batches_per_epoch
                     logger.info("✔︎ Epoch {0} has finished!".format(current_epoch))
@@ -326,4 +358,4 @@ def train_rnn():
 
 
 if __name__ == '__main__':
-    train_rnn()
+    train_sann()
