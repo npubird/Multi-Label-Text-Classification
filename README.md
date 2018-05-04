@@ -81,7 +81,11 @@ References:
 
 ### TextRNN
 
-**Warning: Not finished yet 🤪!**
+**Warning: Model can use Not finished yet 🤪!**
+
+#### TODO
+1. Add BN-LSTM cell unit.
+2. Add attention.
 
 ![]()
 
@@ -122,6 +126,21 @@ References:
 ![]()
 
 References:
+
+---
+
+### TextSANN
+
+**Warning: Model can use but not finished yet 🤪!**
+
+#### TODO
+1. Add attention penalization loss.
+2. Add visualization.
+
+![]()
+
+References:
+- [A STRUCTURED SELF-ATTENTIVE SENTENCE EMBEDDING](https://arxiv.org/pdf/1703.03130.pdf)
 
 ---
 
