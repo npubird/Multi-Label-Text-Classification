@@ -16,7 +16,7 @@ def linear(input_, output_size, scope=None):
     """
     Linear map: output[k] = sum_i(Matrix[k, i] * args[i] ) + Bias[k]
     Args:
-        args: a tensor or a list of 2D, batch x n, Tensors.
+        input_: a tensor or a list of 2D, batch x n, Tensors.
         output_size: int, second dimension of W[i].
         scope: VariableScope for the created subgraph; defaults to "Linear".
     Returns:

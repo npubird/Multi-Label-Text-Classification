@@ -69,10 +69,6 @@ def test_ann():
     logger.info('✔︎ Test data padding...')
     x_test, y_test = dh.pad_data(test_data, FLAGS.pad_seq_len)
 
-    # Build vocabulary
-    VOCAB_SIZE = dh.load_vocab_size(FLAGS.embedding_dim)
-    pretrained_word2vec_matrix = dh.load_word2vec_matrix(VOCAB_SIZE, FLAGS.embedding_dim)
-
     # Load ann model
     logger.info("✔ Loading model...")
     checkpoint_file = tf.train.latest_checkpoint(FLAGS.checkpoint_dir)
@@ -95,9 +91,6 @@ def test_ann():
             input_y = graph.get_operation_by_name("input_y").outputs[0]
             dropout_keep_prob = graph.get_operation_by_name("dropout_keep_prob").outputs[0]
             is_training = graph.get_operation_by_name("is_training").outputs[0]
-
-            # pre-trained word2vec
-            pretrained_embedding = graph.get_operation_by_name("embedding/embedding").outputs[0]
 
             # Tensors we want to evaluate
             scores = graph.get_operation_by_name("output/scores").outputs[0]

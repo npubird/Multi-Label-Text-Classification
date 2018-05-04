@@ -57,8 +57,8 @@ tf.flags.DEFINE_integer("batch_size", 512, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer("num_epochs", 200, "Number of training epochs (default: 200)")
 tf.flags.DEFINE_integer("evaluate_every", 10000, "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_float("norm_ratio", 2, "The ratio of the sum of gradients norms of trainable variable (default: 1.25)")
-tf.flags.DEFINE_integer("decay_steps", 5000, "how many steps before decay learning rate.")
-tf.flags.DEFINE_float("decay_rate", 0.5, "Rate of decay for learning rate.")
+tf.flags.DEFINE_integer("decay_steps", 500, "how many steps before decay learning rate.")
+tf.flags.DEFINE_float("decay_rate", 0.95, "Rate of decay for learning rate.")
 tf.flags.DEFINE_integer("checkpoint_every", 1000, "Save model after this many steps (default: 100)")
 tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
 
@@ -120,11 +120,11 @@ def train_cnn():
                 pretrained_embedding=pretrained_word2vec_matrix)
 
             # Define training procedure
-            # learning_rate = tf.train.exponential_decay(learning_rate=FLAGS.learning_rate, global_step=cnn.global_step,
-            #                                            decay_steps=FLAGS.decay_steps, decay_rate=FLAGS.decay_rate,
-            #                                            staircase=True)
             with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
-                optimizer = tf.train.AdamOptimizer(FLAGS.learning_rate)
+                learning_rate = tf.train.exponential_decay(learning_rate=FLAGS.learning_rate,
+                                                           global_step=cnn.global_step, decay_steps=FLAGS.decay_steps,
+                                                           decay_rate=FLAGS.decay_rate, staircase=True)
+                optimizer = tf.train.AdamOptimizer(learning_rate)
                 grads, vars = zip(*optimizer.compute_gradients(cnn.loss))
                 grads, _ = tf.clip_by_global_norm(grads, clip_norm=FLAGS.norm_ratio)
                 train_op = optimizer.apply_gradients(zip(grads, vars), global_step=cnn.global_step, name="train_op")
