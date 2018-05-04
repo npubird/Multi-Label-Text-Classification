@@ -314,12 +314,12 @@ def data_word2vec(input_file, num_labels, word2vec_model):
             pass
 
         @property
-        def testid(self):
-            return testid
-
-        @property
         def number(self):
             return total_line
+
+        @property
+        def testid(self):
+            return testid
 
         @property
         def tokenindex(self):
@@ -436,7 +436,6 @@ def plot_seq_len(data_file, data, percentage=0.98):
     avg = 0
     count = 0
     border_index = []
-    print(data.number)
     for item in freq_seq:
         x.append(item[0])
         y.append(item[1])
@@ -445,8 +444,8 @@ def plot_seq_len(data_file, data, percentage=0.98):
         if count > data.number * percentage:
             border_index.append(item[0])
     avg = avg / data.number
-    logging.info('The average of the data sequence length is {}'.format(avg))
-    logging.info('The recommend of padding sequence length should more than {}'.format(border_index[0]))
+    logging.info('The average of the data sequence length is {0}'.format(avg))
+    logging.info('The recommend of padding sequence length should more than {0}'.format(border_index[0]))
     xlim(0, 200)
     plt.bar(x, y)
     plt.savefig(output_file)
