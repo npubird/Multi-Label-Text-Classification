@@ -38,7 +38,7 @@ tf.flags.DEFINE_integer("lstm_hidden_size", 256, "Hidden size for bi-lstm layer(
 tf.flags.DEFINE_integer("fc_hidden_size", 1024, "Hidden size for fully connected layer (default: 1024)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 0.0)")
-tf.flags.DEFINE_integer("num_classes", 367, "Number of labels (depends on the task)")
+tf.flags.DEFINE_integer("num_classes", 366, "Number of labels (depends on the task)")
 tf.flags.DEFINE_integer("top_num", 5, "Number of top K prediction classes (default: 5)")
 tf.flags.DEFINE_float("threshold", 0.5, "Threshold for prediction classes (default: 0.5)")
 

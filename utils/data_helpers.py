@@ -289,6 +289,7 @@ def data_word2vec(input_file, num_labels, word2vec_model):
         content_indexlist = []
         labels = []
         labels_bind = []
+        labels_num = []
         for index, eachline in enumerate(fin):
             content = []
             data = json.loads(eachline)
@@ -302,6 +303,7 @@ def data_word2vec(input_file, num_labels, word2vec_model):
                 content.append(item)
 
             labels.append(create_label(label_index))
+            labels_num.append(data['knows_num'])
             content_indexlist.append(token_to_index(content))
 
             if 'knows_bind' in data.keys():
@@ -328,6 +330,10 @@ def data_word2vec(input_file, num_labels, word2vec_model):
         @property
         def labels(self):
             return labels
+
+        @property
+        def labels_num(self):
+            return labels_num
 
         @property
         def labels_bind(self):
