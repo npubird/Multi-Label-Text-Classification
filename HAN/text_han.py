@@ -8,7 +8,7 @@ def linear(input_, output_size, scope=None):
     """
     Linear map: output[k] = sum_i(Matrix[k, i] * args[i] ) + Bias[k]
     Args:
-        args: a tensor or a list of 2D, batch x n, Tensors.
+        input_: a tensor or a list of 2D, batch x n, Tensors.
         output_size: int, second dimension of W[i].
         scope: VariableScope for the created subgraph; defaults to "Linear".
     Returns:
@@ -55,7 +55,7 @@ class TextHAN(object):
     """A HAN for text classification."""
 
     def __init__(
-            self, sequence_length, num_classes, top_num, batch_size, vocab_size, hidden_size,
+            self, sequence_length, num_classes, batch_size, vocab_size, hidden_size,
             embedding_size, embedding_type, l2_reg_lambda=0.0, pretrained_embedding=None):
 
         # Placeholders for input, output, dropout_prob and training_tag

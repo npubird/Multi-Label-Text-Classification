@@ -15,7 +15,7 @@ def linear(input_, output_size, scope=None):
     """
     Linear map: output[k] = sum_i(Matrix[k, i] * args[i] ) + Bias[k]
     Args:
-        args: a tensor or a list of 2D, batch x n, Tensors.
+        input_: a tensor or a list of 2D, batch x n, Tensors.
         output_size: int, second dimension of W[i].
         scope: VariableScope for the created subgraph; defaults to "Linear".
     Returns:
@@ -157,7 +157,7 @@ class TextRNN(object):
     """A RNN for text classification."""
 
     def __init__(
-            self, sequence_length, num_classes, top_num, vocab_size, hidden_size, fc_hidden_size,
+            self, sequence_length, num_classes, vocab_size, lstm_hidden_size, fc_hidden_size,
             embedding_size, embedding_type, l2_reg_lambda=0.0, pretrained_embedding=None):
 
         # Placeholders for input, output, dropout_prob and training_tag
@@ -185,8 +185,8 @@ class TextRNN(object):
 
         with tf.name_scope("Bi-lstm"):
             # Bi-LSTM Layer
-            lstm_fw_cell = rnn.BasicLSTMCell(hidden_size)  # forward direction cell
-            lstm_bw_cell = rnn.BasicLSTMCell(hidden_size)  # backward direction cell
+            lstm_fw_cell = rnn.BasicLSTMCell(lstm_hidden_size)  # forward direction cell
+            lstm_bw_cell = rnn.BasicLSTMCell(lstm_hidden_size)  # backward direction cell
             if self.dropout_keep_prob is not None:
                 lstm_fw_cell = rnn.DropoutWrapper(lstm_fw_cell, output_keep_prob=self.dropout_keep_prob)
                 lstm_bw_cell = rnn.DropoutWrapper(lstm_bw_cell, output_keep_prob=self.dropout_keep_prob)
@@ -206,7 +206,7 @@ class TextRNN(object):
 
         # Fully Connected Layer
         with tf.name_scope("fc"):
-            W = tf.Variable(tf.truncated_normal(shape=[hidden_size*2, fc_hidden_size],
+            W = tf.Variable(tf.truncated_normal(shape=[lstm_hidden_size*2, fc_hidden_size],
                                                 stddev=0.1, dtype=tf.float32), name="W")
             b = tf.Variable(tf.constant(0.1, shape=[fc_hidden_size], dtype=tf.float32), name="b")
             self.fc = tf.nn.xw_plus_b(self.lstm_out, W, b)

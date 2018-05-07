@@ -8,7 +8,7 @@ def linear(input_, output_size, scope=None):
     """
     Linear map: output[k] = sum_i(Matrix[k, i] * args[i] ) + Bias[k]
     Args:
-        args: a tensor or a list of 2D, batch x n, Tensors.
+        input_: a tensor or a list of 2D, batch x n, Tensors.
         output_size: int, second dimension of W[i].
         scope: VariableScope for the created subgraph; defaults to "Linear".
     Returns:
@@ -55,10 +55,10 @@ class TextFAST(object):
     """A FASTTEXT for text classification."""
 
     def __init__(
-            self, sequence_length, num_classes, top_num, vocab_size, embedding_size,
+            self, sequence_length, num_classes, vocab_size, embedding_size,
             embedding_type, l2_reg_lambda=0.0, pretrained_embedding=None):
 
-        # Placeholders for input, output and dropout
+        # Placeholders for input, output, dropout_prob and training_tag
         self.input_x = tf.placeholder(tf.int32, [None, sequence_length], name="input_x")
         self.input_y = tf.placeholder(tf.float32, [None, num_classes], name="input_y")
         self.dropout_keep_prob = tf.placeholder(tf.float32, name="dropout_keep_prob")

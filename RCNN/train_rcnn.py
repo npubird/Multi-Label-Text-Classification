@@ -23,20 +23,13 @@ logging.info('✔︎ The format of your input is legal, now loading to next step
 
 TRAIN_OR_RESTORE = TRAIN_OR_RESTORE.upper()
 
-CLASS_BIND = input("☛ Use Class Bind or Not?(Y/N) \n")
-while not (CLASS_BIND.isalpha() and CLASS_BIND.upper() in ['Y', 'N']):
-    CLASS_BIND = input('✘ The format of your input is illegal, please re-input: ')
-logging.info('✔︎ The format of your input is legal, now loading to next step...')
-
-CLASS_BIND = CLASS_BIND.upper()
-
 if TRAIN_OR_RESTORE == 'T':
     logger = dh.logger_fn('tflog', 'logs/training-{0}.log'.format(time.asctime()))
 if TRAIN_OR_RESTORE == 'R':
     logger = dh.logger_fn('tflog', 'logs/restore-{0}.log'.format(time.asctime()))
 
 TRAININGSET_DIR = '../data/Train.json'
-VALIDATIONSET_DIR = '../data/Validation_bind.json'
+VALIDATIONSET_DIR = '../data/Validation.json'
 METADATA_DIR = '../data/metadata.tsv'
 
 # Data Parameters
@@ -45,7 +38,6 @@ tf.flags.DEFINE_string("validation_data_file", VALIDATIONSET_DIR, "Data source f
 tf.flags.DEFINE_string("metadata_file", METADATA_DIR, "Metadata file for embedding visualization"
                                                       "(Each line is a word segment in metadata_file).")
 tf.flags.DEFINE_string("train_or_restore", TRAIN_OR_RESTORE, "Train or Restore.")
-tf.flags.DEFINE_string("use_classbind_or_not", CLASS_BIND, "Use the class bind info or not.")
 
 # Model Hyperparameters
 tf.flags.DEFINE_float("learning_rate", 0.001, "The learning rate (default: 0.001)")
@@ -55,15 +47,16 @@ tf.flags.DEFINE_integer("embedding_type", 1, "The embedding type (default: 1)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 0.0)")
 tf.flags.DEFINE_integer("num_classes", 367, "Number of labels (depends on the task)")
-tf.flags.DEFINE_integer("top_num", 3, "Number of top K prediction classes (default: 3)")
+tf.flags.DEFINE_integer("top_num", 5, "Number of top K prediction classes (default: 5)")
+tf.flags.DEFINE_float("threshold", 0.5, "Threshold for prediction classes (default: 0.5)")
 
 # Training Parameters
 tf.flags.DEFINE_integer("batch_size", 512, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer("num_epochs", 200, "Number of training epochs (default: 200)")
-tf.flags.DEFINE_integer("evaluate_every", 5000, "Evaluate model on dev set after this many steps (default: 100)")
+tf.flags.DEFINE_integer("evaluate_every", 10000, "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_float("norm_ratio", 2, "The ratio of the sum of gradients norms of trainable variable (default: 1.25)")
-tf.flags.DEFINE_integer("decay_steps", 5000, "how many steps before decay learning rate.")
-tf.flags.DEFINE_float("decay_rate", 0.5, "Rate of decay for learning rate.")
+tf.flags.DEFINE_integer("decay_steps", 500, "how many steps before decay learning rate.")
+tf.flags.DEFINE_float("decay_rate", 0.95, "Rate of decay for learning rate.")
 tf.flags.DEFINE_integer("checkpoint_every", 1000, "Save model after this many steps (default: 100)")
 tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
 
@@ -100,8 +93,6 @@ def train_rcnn():
     logger.info('✔︎ Validation data padding...')
     x_validation, y_validation = dh.pad_data(validation_data, FLAGS.pad_seq_len)
 
-    y_validation_bind = validation_data.labels_bind
-
     # Build vocabulary
     VOCAB_SIZE = dh.load_vocab_size(FLAGS.embedding_dim)
     pretrained_word2vec_matrix = dh.load_word2vec_matrix(VOCAB_SIZE, FLAGS.embedding_dim)
@@ -117,7 +108,6 @@ def train_rcnn():
             rcnn = TextRCNN(
                 sequence_length=FLAGS.pad_seq_len,
                 num_classes=FLAGS.num_classes,
-                top_num=FLAGS.top_num,
                 batch_size=FLAGS.batch_size,
                 vocab_size=VOCAB_SIZE,
                 embedding_size=FLAGS.embedding_dim,
@@ -126,11 +116,11 @@ def train_rcnn():
                 pretrained_embedding=pretrained_word2vec_matrix)
 
             # Define training procedure
-            # learning_rate = tf.train.exponential_decay(learning_rate=FLAGS.learning_rate, global_step=cnn.global_step,
-            #                                            decay_steps=FLAGS.decay_steps, decay_rate=FLAGS.decay_rate,
-            #                                            staircase=True)
             with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
-                optimizer = tf.train.AdamOptimizer(FLAGS.learning_rate)
+                learning_rate = tf.train.exponential_decay(learning_rate=FLAGS.learning_rate,
+                                                           global_step=rcnn.global_step, decay_steps=FLAGS.decay_steps,
+                                                           decay_rate=FLAGS.decay_rate, staircase=True)
+                optimizer = tf.train.AdamOptimizer(learning_rate)
                 grads, vars = zip(*optimizer.compute_gradients(rcnn.loss))
                 grads, _ = tf.clip_by_global_norm(grads, clip_norm=FLAGS.norm_ratio)
                 train_op = optimizer.apply_gradients(zip(grads, vars), global_step=rcnn.global_step, name="train_op")
@@ -165,7 +155,6 @@ def train_rcnn():
 
             # Summaries for loss and accuracy
             loss_summary = tf.summary.scalar("loss", rcnn.loss)
-            # acc_summary = tf.summary.scalar("accuracy", rcnn.accuracy)
 
             # Train summaries
             train_summary_op = tf.summary.merge([loss_summary, grad_summaries_merged])
@@ -246,54 +235,104 @@ def train_rcnn():
                 logger.info("step {0}: loss {1:g}".format(step, loss))
                 train_summary_writer.add_summary(summaries, step)
 
-            def validation_step(x_validation, y_validation, y_validation_bind, writer=None):
+            def validation_step(x_validation, y_validation, writer=None):
                 """Evaluates model on a validation set"""
                 batches_validation = batch_iter(
-                    list(zip(x_validation, y_validation, y_validation_bind)), FLAGS.batch_size, FLAGS.num_epochs)
-                eval_loss, eval_rec, eval_acc, eval_F, eval_counter = 0.0, 0.0, 0.0, 0.0, 0
+                    list(zip(x_validation, y_validation)), FLAGS.batch_size, FLAGS.num_epochs)
+
+                # Predict classes by threshold or topk ('ts': threshold; 'tk': topk)
+                eval_counter, eval_loss, eval_rec_ts, eval_acc_ts, eval_F_ts = 0, 0.0, 0.0, 0.0, 0.0
+                eval_rec_tk = [0.0] * FLAGS.top_num
+                eval_acc_tk = [0.0] * FLAGS.top_num
+                eval_F_tk = [0.0] * FLAGS.top_num
+
                 for batch_validation in batches_validation:
-                    x_batch_validation, y_batch_validation, y_batch_validation_bind = zip(*batch_validation)
+                    x_batch_validation, y_batch_validation = zip(*batch_validation)
                     feed_dict = {
                         rcnn.input_x: x_batch_validation,
                         rcnn.input_y: y_batch_validation,
                         rcnn.dropout_keep_prob: 1.0,
                         rcnn.is_training: False
                     }
-                    step, summaries, logits, cur_loss = sess.run(
-                        [rcnn.global_step, validation_summary_op, rcnn.logits, rcnn.loss], feed_dict)
+                    step, summaries, scores, cur_loss = sess.run(
+                        [rcnn.global_step, validation_summary_op, rcnn.scores, rcnn.loss], feed_dict)
 
-                    if FLAGS.use_classbind_or_not == 'Y':
-                        predicted_labels = dh.get_label_using_logits_and_classbind(
-                            logits, y_batch_validation_bind, top_number=FLAGS.top_num)
-                    if FLAGS.use_classbind_or_not == 'N':
-                        predicted_labels = dh.get_label_using_logits(logits, top_number=FLAGS.top_num)
+                    # Predict by threshold
+                    predicted_labels_threshold, predicted_values_threshold = \
+                        dh.get_label_using_scores_by_threshold(scores=scores, threshold=FLAGS.threshold)
 
-                    cur_rec, cur_acc, cur_F = 0.0, 0.0, 0.0
-                    for index, predicted_label in enumerate(predicted_labels):
-                        rec_inc, acc_inc, F_inc = dh.cal_metric(predicted_label, y_batch_validation[index])
-                        cur_rec, cur_acc, cur_F = cur_rec + rec_inc, cur_acc + acc_inc, cur_F + F_inc
+                    cur_rec_ts, cur_acc_ts, cur_F_ts = 0.0, 0.0, 0.0
 
-                    cur_rec = cur_rec / len(y_batch_validation)
-                    cur_acc = cur_acc / len(y_batch_validation)
-                    if (cur_rec + cur_acc) == 0:
-                        cur_F = 0.0
-                    else:
-                        cur_F = (2 * cur_rec * cur_acc) / (cur_rec + cur_acc)
+                    for index, predicted_label_threshold in enumerate(predicted_labels_threshold):
+                        rec_inc_ts, acc_inc_ts, F_inc_ts = dh.cal_metric(predicted_label_threshold,
+                                                                         y_batch_validation[index])
+                        cur_rec_ts, cur_acc_ts, cur_F_ts = cur_rec_ts + rec_inc_ts, \
+                                                           cur_acc_ts + acc_inc_ts, \
+                                                           cur_F_ts + F_inc_ts
 
-                    eval_loss, eval_rec, eval_acc, eval_F, eval_counter = eval_loss + cur_loss, eval_rec + cur_rec, \
-                                                                          eval_acc + cur_acc, eval_F + cur_F, \
-                                                                          eval_counter + 1
-                    logger.info("✔︎ validation batch {0}: loss {1:g}, rec {2:g}, acc {3:g}, F {4:g}"
-                                .format(eval_counter, cur_loss, cur_rec, cur_acc, cur_F))
+                    cur_rec_ts = cur_rec_ts / len(y_batch_validation)
+                    cur_acc_ts = cur_acc_ts / len(y_batch_validation)
+                    cur_F_ts = cur_F_ts / len(y_batch_validation)
+
+                    eval_rec_ts, eval_acc_ts, eval_F_ts = eval_rec_ts + cur_rec_ts, \
+                                                          eval_acc_ts + cur_acc_ts, \
+                                                          eval_F_ts + cur_F_ts
+
+                    # Predict by topK
+                    topK_predicted_labels = []
+                    for top_num in range(FLAGS.top_num):
+                        predicted_labels_topk, predicted_values_topk = \
+                            dh.get_label_using_scores_by_topk(scores=scores, top_num=top_num+1)
+                        topK_predicted_labels.append(predicted_labels_topk)
+
+                    cur_rec_tk = [0.0] * FLAGS.top_num
+                    cur_acc_tk = [0.0] * FLAGS.top_num
+                    cur_F_tk = [0.0] * FLAGS.top_num
+
+                    for top_num, predicted_labels_topK in enumerate(topK_predicted_labels):
+                        for index, predicted_label_topK in enumerate(predicted_labels_topK):
+                            rec_inc_tk, acc_inc_tk, F_inc_tk = dh.cal_metric(predicted_label_topK,
+                                                                             y_batch_validation[index])
+                            cur_rec_tk[top_num], cur_acc_tk[top_num], cur_F_tk[top_num] = \
+                                cur_rec_tk[top_num] + rec_inc_tk, \
+                                cur_acc_tk[top_num] + acc_inc_tk, \
+                                cur_F_tk[top_num] + F_inc_tk
+
+                        cur_rec_tk[top_num] = cur_rec_tk[top_num] / len(y_batch_validation)
+                        cur_acc_tk[top_num] = cur_acc_tk[top_num] / len(y_batch_validation)
+                        cur_F_tk[top_num] = cur_F_tk[top_num] / len(y_batch_validation)
+
+                        eval_rec_tk[top_num], eval_acc_tk[top_num], eval_F_tk[top_num] = \
+                            eval_rec_tk[top_num] + cur_rec_tk[top_num], \
+                            eval_acc_tk[top_num] + cur_acc_tk[top_num], \
+                            eval_F_tk[top_num] + cur_F_tk[top_num]
+
+                    eval_loss = eval_loss + cur_loss
+                    eval_counter = eval_counter + 1
+
+                    logger.info("✔︎ validation batch {0}: loss {1:g}".format(eval_counter, cur_loss))
+                    logger.info("︎☛ Predict by threshold: recall {0:g}, accuracy {1:g}, F {2:g}"
+                                .format(cur_rec_ts, cur_acc_ts, cur_F_ts))
+
+                    logger.info("︎☛ Predict by topK:")
+                    for top_num in range(FLAGS.top_num):
+                        logger.info("Top{0}: recall {1:g}, accuracy {2:g}, F {3:g}"
+                                    .format(top_num + 1, cur_rec_tk[top_num], cur_acc_tk[top_num], cur_F_tk[top_num]))
+
                     if writer:
                         writer.add_summary(summaries, step)
 
                 eval_loss = float(eval_loss / eval_counter)
-                eval_rec = float(eval_rec / eval_counter)
-                eval_acc = float(eval_acc / eval_counter)
-                eval_F = float(eval_F / eval_counter)
+                eval_rec_ts = float(eval_rec_ts / eval_counter)
+                eval_acc_ts = float(eval_acc_ts / eval_counter)
+                eval_F_ts = float(eval_F_ts / eval_counter)
 
-                return eval_loss, eval_rec, eval_acc, eval_F
+                for top_num in range(FLAGS.top_num):
+                    eval_rec_tk[top_num] = float(eval_rec_tk[top_num] / eval_counter)
+                    eval_acc_tk[top_num] = float(eval_acc_tk[top_num] / eval_counter)
+                    eval_F_tk[top_num] = float(eval_F_tk[top_num] / eval_counter)
+
+                return eval_loss, eval_rec_ts, eval_acc_ts, eval_F_ts, eval_rec_tk, eval_acc_tk, eval_F_tk
 
             # Generate batches
             batches_train = batch_iter(
@@ -309,16 +348,24 @@ def train_rcnn():
 
                 if current_step % FLAGS.evaluate_every == 0:
                     logger.info("\nEvaluation:")
-                    eval_loss, eval_rec, eval_acc, eval_F = validation_step(
-                        x_validation, y_validation, y_validation_bind, writer=validation_summary_writer)
-                    logger.info("step {0}: loss {1:g}, rec {2:g}, acc {3:g}, F {4:g}"
-                                .format(current_step, eval_loss, eval_rec, eval_acc, eval_F))
+                    eval_loss, eval_rec_ts, eval_acc_ts, eval_F_ts, eval_rec_tk, eval_acc_tk, eval_F_tk = \
+                        validation_step(x_validation, y_validation, writer=validation_summary_writer)
 
+                    logger.info("All Validation set: Loss {0:g}".format(eval_loss))
+
+                    # Predict by threshold
+                    logger.info("︎☛ Predict by threshold: Recall {0:g}, Accuracy {1:g}, F {2:g}"
+                                .format(eval_rec_ts, eval_acc_ts, eval_F_ts))
+
+                    # Predict by topK
+                    logger.info("︎☛ Predict by topK:")
+                    for top_num in range(FLAGS.top_num):
+                        logger.info("Top{0}: Recall {1:g}, Accuracy {2:g}, F {3:g}"
+                                    .format(top_num+1, eval_rec_tk[top_num], eval_acc_tk[top_num], eval_F_tk[top_num]))
                 if current_step % FLAGS.checkpoint_every == 0:
                     checkpoint_prefix = os.path.join(checkpoint_dir, "model")
                     path = saver.save(sess, checkpoint_prefix, global_step=current_step)
                     logger.info("✔︎ Saved model checkpoint to {0}\n".format(path))
-
                 if current_step % num_batches_per_epoch == 0:
                     current_epoch = current_step // num_batches_per_epoch
                     logger.info("✔︎ Epoch {0} has finished!".format(current_epoch))

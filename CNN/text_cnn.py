@@ -101,7 +101,6 @@ class TextCNN(object):
                 conv = tf.nn.bias_add(conv, b)
 
                 # Batch Normalization Layer
-                # Use bias or not? Confused...
                 conv_bn = tf.layers.batch_normalization(conv, training=self.is_training)
 
                 # Apply nonlinearity

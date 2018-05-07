@@ -19,15 +19,8 @@ while not (MODEL.isdigit() and len(MODEL) == 10):
     MODEL = input('✘ The format of your input is illegal, it should be like(1490175368), please re-input: ')
 logger.info('✔︎ The format of your input is legal, now loading to next step...')
 
-CLASS_BIND = input("☛ Use Class Bind or Not?(Y/N) \n")
-while not (CLASS_BIND.isalpha() and CLASS_BIND.upper() in ['Y', 'N']):
-    CLASS_BIND = input('✘ The format of your input is illegal, please re-input: ')
-logger.info('✔︎ The format of your input is legal, now loading to next step...')
-
-CLASS_BIND = CLASS_BIND.upper()
-
 TRAININGSET_DIR = '../data/Train.json'
-VALIDATIONSET_DIR = '../data/Validation_bind.json'
+VALIDATIONSET_DIR = '../data/Validation.json'
 TESTSET_DIR = '../data/Test.json'
 MODEL_DIR = 'runs/' + MODEL + '/checkpoints/'
 SAVE_DIR = 'results/' + MODEL
@@ -37,7 +30,6 @@ tf.flags.DEFINE_string("training_data_file", TRAININGSET_DIR, "Data source for t
 tf.flags.DEFINE_string("validation_data_file", VALIDATIONSET_DIR, "Data source for the validation data")
 tf.flags.DEFINE_string("test_data_file", TESTSET_DIR, "Data source for the test data")
 tf.flags.DEFINE_string("checkpoint_dir", MODEL_DIR, "Checkpoint directory from training run")
-tf.flags.DEFINE_string("use_classbind_or_not", CLASS_BIND, "Use the class bind info or not.")
 
 # Model Hyperparameters
 tf.flags.DEFINE_integer("pad_seq_len", 150, "Recommended padding Sequence length of data (depends on the data)")
@@ -46,7 +38,8 @@ tf.flags.DEFINE_integer("embedding_type", 1, "The embedding type (default: 1)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 0.0)")
 tf.flags.DEFINE_integer("num_classes", 367, "Number of labels (depends on the task)")
-tf.flags.DEFINE_integer("top_num", 3, "Number of top K prediction classes (default: 3)")
+tf.flags.DEFINE_integer("top_num", 5, "Number of top K prediction classes (default: 5)")
+tf.flags.DEFINE_float("threshold", 0.5, "Threshold for prediction classes (default: 0.5)")
 
 # Test Parameters
 tf.flags.DEFINE_integer("batch_size", 512, "Batch Size (default: 64)")
@@ -75,11 +68,6 @@ def test_mann():
 
     logger.info('✔︎ Test data padding...')
     x_test, y_test = dh.pad_data(test_data, FLAGS.pad_seq_len)
-    y_test_bind = test_data.labels_bind
-
-    # Build vocabulary
-    VOCAB_SIZE = dh.load_vocab_size(FLAGS.embedding_dim)
-    pretrained_word2vec_matrix = dh.load_word2vec_matrix(VOCAB_SIZE, FLAGS.embedding_dim)
 
     # Load mann model
     logger.info("✔ Loading model...")
@@ -104,16 +92,12 @@ def test_mann():
             dropout_keep_prob = graph.get_operation_by_name("dropout_keep_prob").outputs[0]
             is_training = graph.get_operation_by_name("is_training").outputs[0]
 
-            # pre-trained word2vec
-            pretrained_embedding = graph.get_operation_by_name("embedding/embedding").outputs[0]
-
             # Tensors we want to evaluate
-            logits = graph.get_operation_by_name("output/logits").outputs[0]
-            topKPreds = graph.get_operation_by_name("output/topKPreds").outputs[0]
+            scores = graph.get_operation_by_name("output/scores").outputs[0]
             loss = graph.get_operation_by_name("loss/loss").outputs[0]
 
             # Split the output nodes name by '|' if you have several output nodes
-            output_node_names = 'output/logits|output/scores|output/topKPreds'
+            output_node_names = 'output/logits|output/scores'
 
             # Save the .pb model file
             output_graph_def = tf.graph_util.convert_variables_to_constants(sess, sess.graph_def,
@@ -121,56 +105,118 @@ def test_mann():
             tf.train.write_graph(output_graph_def, 'graph', 'graph-mann-{0}.pb'.format(MODEL), as_text=False)
 
             # Generate batches for one epoch
-            batches = dh.batch_iter(list(zip(x_test, y_test, y_test_bind)), FLAGS.batch_size, 1, shuffle=False)
+            batches = dh.batch_iter(list(zip(x_test, y_test)), FLAGS.batch_size, 1, shuffle=False)
 
             # Collect the predictions here
-            all_predictions = np.empty(shape=(0, FLAGS.top_num))
-            all_topKPreds = np.empty(shape=(0, FLAGS.top_num))
+            all_predicted_label_ts = []
+            all_predicted_values_ts = []
 
-            eval_loss, eval_rec, eval_acc, eval_counter = 0.0, 0.0, 0.0, 0
+            all_predicted_label_tk = []
+            all_predicted_values_tk = []
+
+            # Calculate the metric
+            test_counter, test_loss, test_rec_ts, test_acc_ts, test_F_ts = 0, 0.0, 0.0, 0.0, 0.0
+            test_rec_tk = [0.0] * FLAGS.top_num
+            test_acc_tk = [0.0] * FLAGS.top_num
+            test_F_tk = [0.0] * FLAGS.top_num
 
             for batch_test in batches:
-                x_batch_test, y_batch_test, y_batch_test_bind = zip(*batch_test)
+                x_batch_test, y_batch_test = zip(*batch_test)
                 feed_dict = {
                     input_x: x_batch_test,
                     input_y: y_batch_test,
                     dropout_keep_prob: 1.0,
                     is_training: False
                 }
-                batch_logits = sess.run(logits, feed_dict)
+                batch_scores, cur_loss = sess.run([scores, loss], feed_dict)
 
-                batch_topKPreds = sess.run(topKPreds, feed_dict)
-                all_topKPreds = np.vstack((all_topKPreds, batch_topKPreds))
+                # Predict by threshold
+                predicted_labels_threshold, predicted_values_threshold = \
+                    dh.get_label_using_scores_by_threshold(scores=batch_scores, threshold=FLAGS.threshold)
 
-                batch_loss = sess.run(loss, feed_dict)
+                cur_rec_ts, cur_acc_ts, cur_F_ts = 0.0, 0.0, 0.0
 
-                if FLAGS.use_classbind_or_not == 'Y':
-                    predicted_labels = dh.get_label_using_logits_and_classbind(
-                        batch_logits, y_batch_test_bind, top_number=FLAGS.top_num)
-                if FLAGS.use_classbind_or_not == 'N':
-                    predicted_labels = dh.get_label_using_logits(batch_logits, top_number=FLAGS.top_num)
+                for index, predicted_label_threshold in enumerate(predicted_labels_threshold):
+                    rec_inc_ts, acc_inc_ts, F_inc_ts = dh.cal_metric(predicted_label_threshold,
+                                                                     y_batch_test[index])
+                    cur_rec_ts, cur_acc_ts, cur_F_ts = cur_rec_ts + rec_inc_ts, \
+                                                       cur_acc_ts + acc_inc_ts, \
+                                                       cur_F_ts + F_inc_ts
 
-                all_predictions = np.vstack((all_predictions, predicted_labels))
+                cur_rec_ts = cur_rec_ts / len(y_batch_test)
+                cur_acc_ts = cur_acc_ts / len(y_batch_test)
+                cur_F_ts = cur_F_ts / len(y_batch_test)
 
-                cur_rec, cur_acc = 0.0, 0.0
-                for index, predicted_label in enumerate(predicted_labels):
-                    rec_inc, acc_inc = dh.cal_rec_and_acc(predicted_label, y_batch_test[index])
-                    cur_rec, cur_acc = cur_rec + rec_inc, cur_acc + acc_inc
+                test_rec_ts, test_acc_ts, test_F_ts = test_rec_ts + cur_rec_ts, \
+                                                      test_acc_ts + cur_acc_ts, \
+                                                      test_F_ts + cur_F_ts
 
-                cur_rec = cur_rec / len(y_batch_test)
-                cur_acc = cur_acc / len(y_batch_test)
+                # Add results to collection
+                for item in predicted_labels_threshold:
+                    all_predicted_label_ts.append(item)
+                for item in predicted_values_threshold:
+                    all_predicted_values_ts.append(item)
 
-                eval_rec, eval_acc, eval_counter = eval_rec + cur_rec, eval_acc + cur_acc, eval_counter + 1
-                logger.info("✔︎ Test batch {0}: loss {1:g}, recall {2:g}, accuracy {2:g}."
-                            .format(eval_counter, batch_loss, cur_rec, cur_acc))
+                # Predict by topK
+                topK_predicted_labels = []
+                for top_num in range(FLAGS.top_num):
+                    predicted_labels_topk, predicted_values_topk = \
+                        dh.get_label_using_scores_by_topk(batch_scores, top_num=top_num + 1)
+                    topK_predicted_labels.append(predicted_labels_topk)
 
-            eval_rec = float(eval_rec / eval_counter)
-            eval_acc = float(eval_acc / eval_counter)
-            logger.info("☛ All Test Dataset: Recall {0:g}, Accuracy {1:g}".format(eval_rec, eval_acc))
+                cur_rec_tk = [0.0] * FLAGS.top_num
+                cur_acc_tk = [0.0] * FLAGS.top_num
+                cur_F_tk = [0.0] * FLAGS.top_num
+
+                for top_num, predicted_labels_topK in enumerate(topK_predicted_labels):
+                    for index, predicted_label_topK in enumerate(predicted_labels_topK):
+                        rec_inc_tk, acc_inc_tk, F_inc_tk = dh.cal_metric(predicted_label_topK,
+                                                                         y_batch_test[index])
+                        cur_rec_tk[top_num], cur_acc_tk[top_num], cur_F_tk[top_num] = \
+                            cur_rec_tk[top_num] + rec_inc_tk, \
+                            cur_acc_tk[top_num] + acc_inc_tk, \
+                            cur_F_tk[top_num] + F_inc_tk
+
+                    cur_rec_tk[top_num] = cur_rec_tk[top_num] / len(y_batch_test)
+                    cur_acc_tk[top_num] = cur_acc_tk[top_num] / len(y_batch_test)
+                    cur_F_tk[top_num] = cur_F_tk[top_num] / len(y_batch_test)
+
+                    test_rec_tk[top_num], test_acc_tk[top_num], test_F_tk[top_num] = \
+                        test_rec_tk[top_num] + cur_rec_tk[top_num], \
+                        test_acc_tk[top_num] + cur_acc_tk[top_num], \
+                        test_F_tk[top_num] + cur_F_tk[top_num]
+
+                test_loss = test_loss + cur_loss
+                test_counter = test_counter + 1
+
+            test_loss = float(test_loss / test_counter)
+            test_rec_ts = float(test_rec_ts / test_counter)
+            test_acc_ts = float(test_acc_ts / test_counter)
+            test_F_ts = float(test_F_ts / test_counter)
+
+            for top_num in range(FLAGS.top_num):
+                test_rec_tk[top_num] = float(test_rec_tk[top_num] / test_counter)
+                test_acc_tk[top_num] = float(test_acc_tk[top_num] / test_counter)
+                test_F_tk[top_num] = float(test_F_tk[top_num] / test_counter)
+
+            logger.info("☛ All Test Dataset: Loss {0:g}".format(test_loss))
+
+            # Predict by threshold
+            logger.info("︎☛ Predict by threshold: Recall {0:g}, accuracy {1:g}, F {2:g}"
+                        .format(test_rec_ts, test_acc_ts, test_F_ts))
+
+            # Predict by topK
+            logger.info("︎☛ Predict by topK:")
+            for top_num in range(FLAGS.top_num):
+                logger.info("Top{0}: recall {1:g}, accuracy {2:g}, F {3:g}"
+                            .format(top_num + 1, test_rec_tk[top_num], test_acc_tk[top_num], test_F_tk[top_num]))
+
+            # Save the prediction result
             if not os.path.exists(SAVE_DIR):
                 os.makedirs(SAVE_DIR)
             dh.create_prediction_file(file=SAVE_DIR + '/predictions.json', data_id=test_data.testid,
-                                      all_predict_labels=all_predictions, all_predict_values=all_topKPreds)
+                                      all_predict_labels_ts=all_predicted_label_ts,
+                                      all_predict_values_ts=all_predicted_values_ts)
 
     logger.info("✔ Done.")
 
