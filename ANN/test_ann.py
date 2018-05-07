@@ -151,6 +151,7 @@ def test_ann():
                                                       test_acc_ts + cur_acc_ts, \
                                                       test_F_ts + cur_F_ts
 
+                # Add results to collection
                 for item in predicted_labels_threshold:
                     all_predicted_label_ts.append(item)
                 for item in predicted_values_threshold:
