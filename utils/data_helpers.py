@@ -164,7 +164,7 @@ def create_metadata_file(embedding_size, output_file=METADATA_DIR):
     with open(output_file, 'w+') as fout:
         for word in word2idx_sorted:
             if word[0] is None:
-                logging.info("Empty Line, should replaced by any thing else, or will cause a bug of tensorboard")
+                print("Empty Line, should replaced by any thing else, or will cause a bug of tensorboard")
                 fout.write('<Empty Line>' + '\n')
             else:
                 fout.write(word[0] + '\n')
@@ -397,8 +397,8 @@ def load_data_and_labels(data_file, num_labels, embedding_size):
 
     # plot_seq_len(data_file, data)
 
-    logging.info('Found {0} texts.'.format(data.number))
-    # logging.info('Augmented {0} texts.'.format(aug_data.number))
+    # print('Found {0} texts.'.format(data.number))
+    # print.info('Augmented {0} texts.'.format(aug_data.number))
 
     return data
 
@@ -429,7 +429,10 @@ def plot_seq_len(data_file, data, percentage=0.98):
         data: The class Data (includes the data tokenindex and data labels)
         percentage: The percentage of the total data you want to show
     """
-    output_file = '../data/data_analysis/' + data_file.split('.')[0] + ' Sequence Length Distribution Histogram.png'
+    if 'train' in str(data_file).lower():
+        output_file = '../data/data_analysis/Train Sequence Length Distribution Histogram.png'
+    if 'validation' in str(data_file).lower():
+        output_file = '../data/data_analysis/Validation Sequence Length Distribution Histogram.png'
     result = dict()
     for x in data.tokenindex:
         if len(x) not in result.keys():
@@ -450,8 +453,8 @@ def plot_seq_len(data_file, data, percentage=0.98):
         if count > data.number * percentage:
             border_index.append(item[0])
     avg = avg / data.number
-    logging.info('The average of the data sequence length is {0}'.format(avg))
-    logging.info('The recommend of padding sequence length should more than {0}'.format(border_index[0]))
+    print('The average of the data sequence length is {0}'.format(avg))
+    print('The recommend of padding sequence length should more than {0}'.format(border_index[0]))
     xlim(0, 200)
     plt.bar(x, y)
     plt.savefig(output_file)
