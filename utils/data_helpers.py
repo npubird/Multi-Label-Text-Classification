@@ -8,7 +8,6 @@ import logging
 import json
 import numpy as np
 
-from operator import itemgetter
 from pylab import *
 from gensim.models import word2vec
 from tflearn.data_utils import pad_sequences
@@ -17,25 +16,25 @@ TEXT_DIR = '../data/content.txt'
 METADATA_DIR = '../data/metadata.tsv'
 
 
-def logger_fn(name, file, level=logging.INFO):
+def logger_fn(name, input_file, level=logging.INFO):
     tf_logger = logging.getLogger(name)
     tf_logger.setLevel(level)
-    log_dir = os.path.dirname(file)
+    log_dir = os.path.dirname(input_file)
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
-    fh = logging.FileHandler(file, mode='w')
+    fh = logging.FileHandler(input_file, mode='w')
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
     fh.setFormatter(formatter)
     tf_logger.addHandler(fh)
     return tf_logger
 
 
-def create_prediction_file(file, data_id, all_predict_labels_ts, all_predict_values_ts):
+def create_prediction_file(output_file, data_id, all_predict_labels_ts, all_predict_values_ts):
     """
     Create the prediction file.
 
     Args:
-        file: The all classes predicted scores provided by network
+        output_file: The all classes predicted scores provided by network
         data_id: The data record id info provided by class Data
         all_predict_labels_ts: The all predict labels by threshold
         all_predict_values_ts: The all predict values by threshold
@@ -43,16 +42,19 @@ def create_prediction_file(file, data_id, all_predict_labels_ts, all_predict_val
         IOError: If the prediction file is not a .json file
     """
     # TODO
-    if not file.endswith('.json'):
+    if not output_file.endswith('.json'):
         raise IOError("✘ The prediction file is not a json file."
                       "Please make sure the prediction data is a json file.")
-    with open(file, 'w') as fout:
-        for index in range(len(all_predict_labels_ts)):
-            predict_labels = [int(i) for i in all_predict_labels_ts[index]]
-            predict_values = [round(i, 4) for i in all_predict_values_ts[index]]
+    with open(output_file, 'w') as fout:
+
+        data_size = len(all_predict_labels_ts)
+
+        for i in range(data_size):
+            predict_labels = [int(i) for i in all_predict_labels_ts[i]]
+            predict_values = [round(i, 4) for i in all_predict_values_ts[i]]
             data_record = {
-                'testid': data_id[index],
-                'domain': predict_labels,
+                'testid': data_id[i],
+                'predict_labels': predict_labels,
                 'predict_values': predict_values
             }
             fout.write(json.dumps(data_record, ensure_ascii=True) + '\n')
@@ -269,10 +271,10 @@ def data_word2vec(input_file, num_labels, word2vec_model):
     def token_to_index(content):
         result = []
         for item in content:
-            id = vocab.get(item)
-            if id is None:
-                id = 0
-            result.append(id)
+            word2id = vocab.get(item)
+            if word2id is None:
+                word2id = 0
+            result.append(word2id)
         return result
 
     def create_label(label_index):
@@ -290,7 +292,8 @@ def data_word2vec(input_file, num_labels, word2vec_model):
         labels = []
         labels_bind = []
         labels_num = []
-        for index, eachline in enumerate(fin):
+        total_line = 0
+        for eachline in fin:
             content = []
             data = json.loads(eachline)
             test_id = data['testid']
@@ -309,7 +312,7 @@ def data_word2vec(input_file, num_labels, word2vec_model):
             if 'knows_bind' in data.keys():
                 labels_bind.append(data['knows_bind'])
 
-        total_line = index + 1
+            total_line += 1
 
     class Data:
         def __init__(self):
@@ -366,7 +369,7 @@ def load_word2vec_matrix(vocab_size, embedding_size):
     vocab = dict([(k, v.index) for k, v in model.wv.vocab.items()])
     vector = np.zeros([vocab_size, embedding_size])
     for key, value in vocab.items():
-        if len(key) > 0:
+        if key is not None:
             vector[value] = model[key]
     return vector
 
@@ -429,10 +432,13 @@ def plot_seq_len(data_file, data, percentage=0.98):
         data: The class Data (includes the data tokenindex and data labels)
         percentage: The percentage of the total data you want to show
     """
-    if 'train' in str(data_file).lower():
-        output_file = '../data/data_analysis/Train Sequence Length Distribution Histogram.png'
-    if 'validation' in str(data_file).lower():
-        output_file = '../data/data_analysis/Validation Sequence Length Distribution Histogram.png'
+    data_analysis_dir = '../data/data_analysis/'
+    if 'train' in data_file.lower():
+        output_file = data_analysis_dir + 'Train Sequence Length Distribution Histogram.png'
+    if 'validation' in data_file.lower():
+        output_file = data_analysis_dir + 'Validation Sequence Length Distribution Histogram.png'
+    if 'test' in data_file.lower():
+        output_file = data_analysis_dir + 'Test Sequence Length Distribution Histogram.png'
     result = dict()
     for x in data.tokenindex:
         if len(x) not in result.keys():
