@@ -1,0 +1,12 @@
+six==1.11.0
+tensorflow==1.8.0
+tflearn==0.3.2
+gensim==3.4.0
+pip==10.0.1
+tensorflow_tensorboard==1.5.1
+matplotlib==2.2.2
+numpy==1.14.3
+Pillow==5.1.0
+python_gflags==3.1.2
+scikit_learn==0.19.1
+tensorboard==1.8.0
