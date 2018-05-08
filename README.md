@@ -7,7 +7,7 @@ The main objective of the project is to solve the multi-label text classificatio
 ## Requirements
 
 - Python 3.6
-- Tensorflow 1.7 +
+- Tensorflow 1.8 +
 - Numpy
 - Gensim
 
@@ -25,15 +25,19 @@ Research data may attract copyright protection under China law. Thus, there is o
 3. Add embedding visualization based on the **tensorboard**.
 
 ### Model part
-1. Deign **two subnetworks** to solve the task --- Text Pairs Similarity Classification.
-2. Add a new **Highway Layer**.(Which is useful based on the performance)
-3. Add **parent label bind** information to limit the prediction to improve the model.
+1. Add the correct **L2 loss** calculation operation.
+2. Add **gradients clip** operation to prevent gradient explosion.
+3. Add **learning rate decay** with exponential decay.
+4. Add a new **Highway Layer**.(Which is useful based on the performance)
+5. Add **Batch Normalization Layer**.
 
 ### Code part
-1. Can choose to **train** the model directly or **restore** the model from checkpoint in `train_cnn.py`.
-2. Add `test_cnn.py`, the **model test code**.
-3. Add other useful data preprocess functions in `data_helpers.py`.
-4. Use `logging` for helping recording the whole info(including parameters display, model training info, etc.).
+
+1. Can choose to **train** the model directly or **restore** the model from checkpoint in `train.py`.
+2. Can predict the labels via **threshold** and **topK** in `train.py` and `test.py`.
+3. Add `test.py`, the **model test code**, it can show the predict value of each labels of the data in Testset when create the final prediction file.
+4. Add other useful data preprocess functions in `data_helpers.py`.
+5. Use `logging` for helping recording the whole info(including parameters display, model training info, etc.).
 
 ## Data Preprocessing
 
