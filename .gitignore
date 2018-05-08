@@ -96,7 +96,7 @@ target/
 
 ### Current Project ###
 # Data File
-data/
+*.txt
 *.tsv
 *.csv
 *.json
