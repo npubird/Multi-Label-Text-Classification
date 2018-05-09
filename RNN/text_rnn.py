@@ -183,8 +183,8 @@ class TextRNN(object):
                                                  dtype=tf.float32, name="embedding")
             self.embedded_sentence = tf.nn.embedding_lookup(self.embedding, self.input_x)
 
+        # Bi-LSTM Layer
         with tf.name_scope("Bi-lstm"):
-            # Bi-LSTM Layer
             lstm_fw_cell = rnn.BasicLSTMCell(lstm_hidden_size)  # forward direction cell
             lstm_bw_cell = rnn.BasicLSTMCell(lstm_hidden_size)  # backward direction cell
             if self.dropout_keep_prob is not None:
@@ -212,7 +212,7 @@ class TextRNN(object):
             self.fc = tf.nn.xw_plus_b(self.lstm_out, W, b)
 
             # Batch Normalization Layer
-            self.fc_bn = tf.layers.batch_normalization(self.fc, training=self.is_training)
+            self.fc_bn = batch_norm(self.fc, is_training=self.is_training, trainable=True, updates_collections=None)
 
             # Apply nonlinearity
             self.fc_out = tf.nn.relu(self.fc_bn, name="relu")

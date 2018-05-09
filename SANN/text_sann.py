@@ -229,17 +229,16 @@ class TextSANN(object):
 
         # Fully Connected Layer
         with tf.name_scope("fc"):
-            self.fc_out = tflearn.fully_connected(self.M, fc_hidden_size, activation="relu")
-        #     W = tf.Variable(tf.truncated_normal(shape=[attention_hops_size * lstm_hidden_size * 2, fc_hidden_size],
-        #                                         stddev=0.1, dtype=tf.float32), name="W")
-        #     b = tf.Variable(tf.constant(0.1, shape=[fc_hidden_size], dtype=tf.float32), name="b")
-        #     self.fc = tf.nn.xw_plus_b(self.M_flat, W, b)
-        #
-        #     # Batch Normalization Layer
-        #     self.fc_bn = tf.layers.batch_normalization(self.fc, training=self.is_training)
-        #
-        #     # Apply nonlinearity
-        #     self.fc_out = tf.nn.relu(self.fc_bn, name="relu")
+            W = tf.Variable(tf.truncated_normal(shape=[attention_hops_size * lstm_hidden_size * 2, fc_hidden_size],
+                                                stddev=0.1, dtype=tf.float32), name="W")
+            b = tf.Variable(tf.constant(0.1, shape=[fc_hidden_size], dtype=tf.float32), name="b")
+            self.fc = tf.nn.xw_plus_b(self.M_flat, W, b)
+
+            # Batch Normalization Layer
+            self.fc_bn = batch_norm(self.fc, is_training=self.is_training, trainable=True, updates_collections=None)
+
+            # Apply nonlinearity
+            self.fc_out = tf.nn.relu(self.fc_bn, name="relu")
 
         # Highway Layer
         self.highway = highway(self.fc_out, self.fc_out.get_shape()[1], num_layers=1, bias=0, scope="Highway")
