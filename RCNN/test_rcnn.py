@@ -242,7 +242,7 @@ def test_rcnn():
             # Save the prediction result
             if not os.path.exists(SAVE_DIR):
                 os.makedirs(SAVE_DIR)
-            dh.create_prediction_file(file=SAVE_DIR + '/predictions.json', data_id=test_data.testid,
+            dh.create_prediction_file(output_file=SAVE_DIR + '/predictions.json', data_id=test_data.testid,
                                       all_predict_labels_ts=all_predicted_label_ts,
                                       all_predict_values_ts=all_predicted_values_ts)
 
