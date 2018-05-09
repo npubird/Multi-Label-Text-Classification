@@ -129,8 +129,8 @@ class TextMANN(object):
                                                                  self.embedded_sentence, dtype=tf.float32)
 
             # Concat output
-            self.lstm_concat = tf.concat(outputs, axis=2)  # [batch_size, sequence_length, hidden_size*2]
-            self.lstm_out = tf.reduce_mean(self.lstm_concat, axis=1)  # [batch_size, hidden_size*2]
+            self.lstm_concat = tf.concat(outputs, axis=2)  # [batch_size, sequence_length, hidden_size * 2]
+            self.lstm_out = tf.reduce_mean(self.lstm_concat, axis=1)  # [batch_size, hidden_size * 2]
 
             # Fully Connected Layer
             with tf.name_scope("fc"):
@@ -158,7 +158,7 @@ class TextMANN(object):
 
         # Final scores
         with tf.name_scope("output"):
-            W = tf.Variable(tf.truncated_normal(shape=[embedding_size*3, num_classes],
+            W = tf.Variable(tf.truncated_normal(shape=[embedding_size * 3, num_classes],
                                                 stddev=0.1, dtype=tf.float32), name="W")
             b = tf.Variable(tf.constant(0.1, shape=[num_classes], dtype=tf.float32), name="b")
             self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="logits")

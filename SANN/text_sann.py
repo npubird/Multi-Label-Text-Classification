@@ -203,11 +203,11 @@ class TextSANN(object):
                                                              self.embedded_sentence, dtype=tf.float32)
 
         # Concat output
-        self.lstm_out = tf.concat(outputs, axis=2)  # [batch_size, sequence_length, lstm_hidden_size*2]
+        self.lstm_out = tf.concat(outputs, axis=2)  # [batch_size, sequence_length, lstm_hidden_size * 2]
 
         # Add attention
         with tf.name_scope("attention"):
-            W_s1 = tf.Variable(tf.truncated_normal(shape=[attention_unit_size, lstm_hidden_size*2],
+            W_s1 = tf.Variable(tf.truncated_normal(shape=[attention_unit_size, lstm_hidden_size * 2],
                                                    stddev=0.1, dtype=tf.float32), name="W_s1")
             W_s2 = tf.Variable(tf.truncated_normal(shape=[attention_hops_size, attention_unit_size],
                                                    stddev=0.1, dtype=tf.float32), name="W_s2")
@@ -223,13 +223,14 @@ class TextSANN(object):
             )
             self.attention_out = tf.nn.softmax(self.attention)  # [batch_size, attention_hops_size, sequence_length]
 
-        self.M = tf.matmul(self.attention_out, self.lstm_out)  # [batch_size, attention_hops_size, lstm_hidden_size*2]
-        self.M_flat = tf.reshape(self.M, [-1, attention_hops_size*lstm_hidden_size*2])  # [batch_size, attention_hops_size*lstm_hidden_size*2]
+        self.M = tf.matmul(self.attention_out, self.lstm_out)  # [batch_size, attention_hops_size, lstm_hidden_size * 2]
+        # shape of `M_flat`: [batch_size, attention_hops_size * lstm_hidden_size * 2]
+        self.M_flat = tf.reshape(self.M, [-1, attention_hops_size * lstm_hidden_size * 2])
 
         # Fully Connected Layer
         with tf.name_scope("fc"):
             self.fc_out = tflearn.fully_connected(self.M, fc_hidden_size, activation="relu")
-        #     W = tf.Variable(tf.truncated_normal(shape=[attention_hops_size*lstm_hidden_size*2, fc_hidden_size],
+        #     W = tf.Variable(tf.truncated_normal(shape=[attention_hops_size * lstm_hidden_size * 2, fc_hidden_size],
         #                                         stddev=0.1, dtype=tf.float32), name="W")
         #     b = tf.Variable(tf.constant(0.1, shape=[fc_hidden_size], dtype=tf.float32), name="b")
         #     self.fc = tf.nn.xw_plus_b(self.M_flat, W, b)
