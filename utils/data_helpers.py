@@ -118,7 +118,7 @@ def get_label_using_scores_by_topk(scores, top_num=1):
 
 def cal_metric(predicted_labels, labels):
     """
-    Calculate the metric(recall, accuracy, F, etc.).
+    Calculate the metric(recall, accuracy).
 
     Args:
         predicted_labels: The predicted_labels
@@ -136,11 +136,25 @@ def cal_metric(predicted_labels, labels):
             count += 1
     rec = count / len(label_no_zero)
     acc = count / len(predicted_labels)
+    return rec, acc
+
+
+def cal_F(rec, acc):
+    """
+    Calculate the metric F value.
+
+    Args:
+        acc: The accuracy value
+        rec: The recall value
+    Returns:
+        The F value
+    """
+    F = 0.0
     if (rec + acc) == 0:
         F = 0.0
     else:
         F = (2 * rec * acc) / (rec + acc)
-    return rec, acc, F
+    return F
 
 
 def create_metadata_file(embedding_size, output_file=METADATA_DIR):

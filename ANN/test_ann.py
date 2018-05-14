@@ -137,19 +137,13 @@ def test_ann():
                 cur_rec_ts, cur_acc_ts, cur_F_ts = 0.0, 0.0, 0.0
 
                 for index, predicted_label_threshold in enumerate(predicted_labels_threshold):
-                    rec_inc_ts, acc_inc_ts, F_inc_ts = dh.cal_metric(predicted_label_threshold,
-                                                                     y_batch_test[index])
-                    cur_rec_ts, cur_acc_ts, cur_F_ts = cur_rec_ts + rec_inc_ts, \
-                                                       cur_acc_ts + acc_inc_ts, \
-                                                       cur_F_ts + F_inc_ts
+                    rec_inc_ts, acc_inc_ts = dh.cal_metric(predicted_label_threshold, y_batch_test[index])
+                    cur_rec_ts, cur_acc_ts = cur_rec_ts + rec_inc_ts, cur_acc_ts + acc_inc_ts
 
                 cur_rec_ts = cur_rec_ts / len(y_batch_test)
                 cur_acc_ts = cur_acc_ts / len(y_batch_test)
-                cur_F_ts = cur_F_ts / len(y_batch_test)
 
-                test_rec_ts, test_acc_ts, test_F_ts = test_rec_ts + cur_rec_ts, \
-                                                      test_acc_ts + cur_acc_ts, \
-                                                      test_F_ts + cur_F_ts
+                test_rec_ts, test_acc_ts = test_rec_ts + cur_rec_ts, test_acc_ts + cur_acc_ts
 
                 # Add results to collection
                 for item in predicted_labels_threshold:
@@ -170,21 +164,15 @@ def test_ann():
 
                 for top_num, predicted_labels_topK in enumerate(topK_predicted_labels):
                     for index, predicted_label_topK in enumerate(predicted_labels_topK):
-                        rec_inc_tk, acc_inc_tk, F_inc_tk = dh.cal_metric(predicted_label_topK,
-                                                                         y_batch_test[index])
-                        cur_rec_tk[top_num], cur_acc_tk[top_num], cur_F_tk[top_num] = \
-                            cur_rec_tk[top_num] + rec_inc_tk, \
-                            cur_acc_tk[top_num] + acc_inc_tk, \
-                            cur_F_tk[top_num] + F_inc_tk
+                        rec_inc_tk, acc_inc_tk = dh.cal_metric(predicted_label_topK, y_batch_test[index])
+                        cur_rec_tk[top_num], cur_acc_tk[top_num] = \
+                            cur_rec_tk[top_num] + rec_inc_tk, cur_acc_tk[top_num] + acc_inc_tk
 
                     cur_rec_tk[top_num] = cur_rec_tk[top_num] / len(y_batch_test)
                     cur_acc_tk[top_num] = cur_acc_tk[top_num] / len(y_batch_test)
-                    cur_F_tk[top_num] = cur_F_tk[top_num] / len(y_batch_test)
 
-                    test_rec_tk[top_num], test_acc_tk[top_num], test_F_tk[top_num] = \
-                        test_rec_tk[top_num] + cur_rec_tk[top_num], \
-                        test_acc_tk[top_num] + cur_acc_tk[top_num], \
-                        test_F_tk[top_num] + cur_F_tk[top_num]
+                    test_rec_tk[top_num], test_acc_tk[top_num] = \
+                        test_rec_tk[top_num] + cur_rec_tk[top_num], test_acc_tk[top_num] + cur_acc_tk[top_num]
 
                 test_loss = test_loss + cur_loss
                 test_counter = test_counter + 1
@@ -192,12 +180,12 @@ def test_ann():
             test_loss = float(test_loss / test_counter)
             test_rec_ts = float(test_rec_ts / test_counter)
             test_acc_ts = float(test_acc_ts / test_counter)
-            test_F_ts = float(test_F_ts / test_counter)
+            test_F_ts = dh.cal_F(test_rec_ts, test_acc_ts)
 
             for top_num in range(FLAGS.top_num):
                 test_rec_tk[top_num] = float(test_rec_tk[top_num] / test_counter)
                 test_acc_tk[top_num] = float(test_acc_tk[top_num] / test_counter)
-                test_F_tk[top_num] = float(test_F_tk[top_num] / test_counter)
+                test_F_tk[top_num] = dh.cal_F(test_rec_tk[top_num], test_acc_tk[top_num])
 
             logger.info("☛ All Test Dataset: Loss {0:g}".format(test_loss))
 

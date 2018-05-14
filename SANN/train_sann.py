@@ -247,19 +247,15 @@ def train_sann():
                     cur_rec_ts, cur_acc_ts, cur_F_ts = 0.0, 0.0, 0.0
 
                     for index, predicted_label_threshold in enumerate(predicted_labels_threshold):
-                        rec_inc_ts, acc_inc_ts, F_inc_ts = dh.cal_metric(predicted_label_threshold,
-                                                                         y_batch_validation[index])
-                        cur_rec_ts, cur_acc_ts, cur_F_ts = cur_rec_ts + rec_inc_ts, \
-                                                           cur_acc_ts + acc_inc_ts, \
-                                                           cur_F_ts + F_inc_ts
+                        rec_inc_ts, acc_inc_ts = dh.cal_metric(predicted_label_threshold, y_batch_validation[index])
+                        cur_rec_ts, cur_acc_ts = cur_rec_ts + rec_inc_ts, cur_acc_ts + acc_inc_ts
 
                     cur_rec_ts = cur_rec_ts / len(y_batch_validation)
                     cur_acc_ts = cur_acc_ts / len(y_batch_validation)
-                    cur_F_ts = cur_F_ts / len(y_batch_validation)
 
-                    eval_rec_ts, eval_acc_ts, eval_F_ts = eval_rec_ts + cur_rec_ts, \
-                                                          eval_acc_ts + cur_acc_ts, \
-                                                          eval_F_ts + cur_F_ts
+                    cur_F_ts = dh.cal_F(cur_rec_ts, cur_acc_ts)
+
+                    eval_rec_ts, eval_acc_ts = eval_rec_ts + cur_rec_ts, eval_acc_ts + cur_acc_ts
 
                     # Predict by topK
                     topK_predicted_labels = []
@@ -274,21 +270,17 @@ def train_sann():
 
                     for top_num, predicted_labels_topK in enumerate(topK_predicted_labels):
                         for index, predicted_label_topK in enumerate(predicted_labels_topK):
-                            rec_inc_tk, acc_inc_tk, F_inc_tk = dh.cal_metric(predicted_label_topK,
-                                                                             y_batch_validation[index])
-                            cur_rec_tk[top_num], cur_acc_tk[top_num], cur_F_tk[top_num] = \
-                                cur_rec_tk[top_num] + rec_inc_tk, \
-                                cur_acc_tk[top_num] + acc_inc_tk, \
-                                cur_F_tk[top_num] + F_inc_tk
+                            rec_inc_tk, acc_inc_tk = dh.cal_metric(predicted_label_topK, y_batch_validation[index])
+                            cur_rec_tk[top_num], cur_acc_tk[top_num] = \
+                                cur_rec_tk[top_num] + rec_inc_tk, cur_acc_tk[top_num] + acc_inc_tk
 
                         cur_rec_tk[top_num] = cur_rec_tk[top_num] / len(y_batch_validation)
                         cur_acc_tk[top_num] = cur_acc_tk[top_num] / len(y_batch_validation)
-                        cur_F_tk[top_num] = cur_F_tk[top_num] / len(y_batch_validation)
 
-                        eval_rec_tk[top_num], eval_acc_tk[top_num], eval_F_tk[top_num] = \
-                            eval_rec_tk[top_num] + cur_rec_tk[top_num], \
-                            eval_acc_tk[top_num] + cur_acc_tk[top_num], \
-                            eval_F_tk[top_num] + cur_F_tk[top_num]
+                        cur_F_tk[top_num] = dh.cal_F(cur_rec_tk[top_num], cur_acc_tk[top_num])
+
+                        eval_rec_tk[top_num], eval_acc_tk[top_num] = \
+                            eval_rec_tk[top_num] + cur_rec_tk[top_num], eval_acc_tk[top_num] + cur_acc_tk[top_num]
 
                     eval_loss = eval_loss + cur_loss
                     eval_counter = eval_counter + 1
@@ -308,12 +300,12 @@ def train_sann():
                 eval_loss = float(eval_loss / eval_counter)
                 eval_rec_ts = float(eval_rec_ts / eval_counter)
                 eval_acc_ts = float(eval_acc_ts / eval_counter)
-                eval_F_ts = float(eval_F_ts / eval_counter)
+                eval_F_ts = dh.cal_F(eval_rec_ts, eval_acc_ts)
 
                 for top_num in range(FLAGS.top_num):
                     eval_rec_tk[top_num] = float(eval_rec_tk[top_num] / eval_counter)
                     eval_acc_tk[top_num] = float(eval_acc_tk[top_num] / eval_counter)
-                    eval_F_tk[top_num] = float(eval_F_tk[top_num] / eval_counter)
+                    eval_F_tk[top_num] = dh.cal_F(eval_rec_tk[top_num], eval_acc_tk[top_num])
 
                 return eval_loss, eval_rec_ts, eval_acc_ts, eval_F_ts, eval_rec_tk, eval_acc_tk, eval_F_tk
 
