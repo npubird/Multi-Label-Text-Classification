@@ -111,6 +111,13 @@ References:
 
 ---
 
+### TextCRNN
+
+![]()
+
+
+---
+
 ### TextHAN
 
 **Warning: Not finished yet 🤪!**
