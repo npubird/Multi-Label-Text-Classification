@@ -183,12 +183,12 @@ def test_crnn():
             test_loss = float(test_loss / test_counter)
             test_rec_ts = float(test_rec_ts / test_counter)
             test_acc_ts = float(test_acc_ts / test_counter)
-            test_F_ts = float(test_F_ts / test_counter)
+            test_F_ts = dh.cal_F(test_rec_ts, test_acc_ts)
 
             for top_num in range(FLAGS.top_num):
                 test_rec_tk[top_num] = float(test_rec_tk[top_num] / test_counter)
                 test_acc_tk[top_num] = float(test_acc_tk[top_num] / test_counter)
-                test_F_tk[top_num] = float(test_F_tk[top_num] / test_counter)
+                test_F_tk[top_num] = dh.cal_F(test_rec_tk[top_num], test_acc_tk[top_num])
 
             logger.info("☛ All Test Dataset: Loss {0:g}".format(test_loss))
 
