@@ -8,6 +8,7 @@ import logging
 import json
 import numpy as np
 
+from collections import OrderedDict
 from pylab import *
 from gensim.models import word2vec
 from tflearn.data_utils import pad_sequences
@@ -29,34 +30,41 @@ def logger_fn(name, input_file, level=logging.INFO):
     return tf_logger
 
 
-def create_prediction_file(output_file, data_id, all_predict_labels_ts, all_predict_values_ts):
+def create_prediction_file(output_file, data_id, all_labels, all_predict_labels, all_predict_values,
+                           all_rec_values, all_acc_values, all_F_values):
     """
     Create the prediction file.
 
     Args:
         output_file: The all classes predicted scores provided by network
         data_id: The data record id info provided by class Data
-        all_predict_labels_ts: The all predict labels by threshold
-        all_predict_values_ts: The all predict values by threshold
+        all_labels: The all origin labels
+        all_predict_labels: The all predict labels by threshold
+        all_predict_values: The all predict values by threshold
+        all_rec_values: The all recall values by threshold
+        all_acc_values: The all accuracy values by threshold
+        all_F_values: The all F values by threshold
     Raises:
         IOError: If the prediction file is not a .json file
     """
-    # TODO
     if not output_file.endswith('.json'):
         raise IOError("✘ The prediction file is not a json file."
                       "Please make sure the prediction data is a json file.")
     with open(output_file, 'w') as fout:
-
-        data_size = len(all_predict_labels_ts)
-
+        data_size = len(all_predict_labels)
         for i in range(data_size):
-            predict_labels = [int(i) for i in all_predict_labels_ts[i]]
-            predict_values = [round(i, 4) for i in all_predict_values_ts[i]]
-            data_record = {
-                'testid': data_id[i],
-                'predict_labels': predict_labels,
-                'predict_values': predict_values
-            }
+            predict_labels = [int(i) for i in all_predict_labels[i]]
+            predict_values = [round(i, 4) for i in all_predict_values[i]]
+            labels = [int(i) for i in all_labels[i]]
+            data_record = OrderedDict([
+                ('testid', data_id[i]),
+                ('labels', labels),
+                ('predict_labels', predict_labels),
+                ('predict_values', predict_values),
+                ('recall', all_rec_values[i]),
+                ('accuracy', all_acc_values[i]),
+                ('F', all_F_values[i])
+            ])
             fout.write(json.dumps(data_record, ensure_ascii=True) + '\n')
 
 
@@ -226,6 +234,7 @@ def load_vocab_size(embedding_size):
 
 def data_augmented(data_tokenindex, data_labels):
     """Data augmented"""
+    #TODO
     aug_data = []
     aug_label = []
     aug_num = 0
@@ -291,7 +300,7 @@ def data_word2vec(input_file, num_labels, word2vec_model):
             result.append(word2id)
         return result
 
-    def create_label(label_index):
+    def create_onehot_labels(label_index):
         label = [0] * num_labels
         for item in label_index:
             label[int(item)] = 1
@@ -304,6 +313,7 @@ def data_word2vec(input_file, num_labels, word2vec_model):
         testid = []
         content_indexlist = []
         labels = []
+        onehot_labels = []
         labels_bind = []
         labels_num = []
         total_line = 0
@@ -312,19 +322,20 @@ def data_word2vec(input_file, num_labels, word2vec_model):
             data = json.loads(eachline)
             test_id = data['testid']
             features_content = data['features_content'].strip().split()
-            label_index = data['knows_index'].strip().split()
+            label_index = data['labels_index'].strip().split()
 
             testid.append(test_id)
 
             for item in features_content:
                 content.append(item)
 
-            labels.append(create_label(label_index))
-            labels_num.append(data['knows_num'])
+            labels.append(label_index)
+            onehot_labels.append(create_onehot_labels(label_index))
+            labels_num.append(data['labels_num'])
             content_indexlist.append(token_to_index(content))
 
-            if 'knows_bind' in data.keys():
-                labels_bind.append(data['knows_bind'])
+            if 'labels_bind' in data.keys():
+                labels_bind.append(data['labels_bind'])
 
             total_line += 1
 
@@ -347,6 +358,10 @@ def data_word2vec(input_file, num_labels, word2vec_model):
         @property
         def labels(self):
             return labels
+
+        @property
+        def onehot_labels(self):
+            return onehot_labels
 
         @property
         def labels_num(self):
@@ -433,8 +448,8 @@ def pad_data(data, pad_seq_len):
         labels: The data labels
     """
     pad_data = pad_sequences(data.tokenindex, maxlen=pad_seq_len, value=0.)
-    labels = data.labels
-    return pad_data, labels
+    onehot_labels = data.onehot_labels
+    return pad_data, onehot_labels
 
 
 def plot_seq_len(data_file, data, percentage=0.98):

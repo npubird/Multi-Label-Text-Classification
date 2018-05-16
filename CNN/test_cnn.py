@@ -70,6 +70,7 @@ def test_cnn():
 
     logger.info('✔︎ Test data padding...')
     x_test, y_test = dh.pad_data(test_data, FLAGS.pad_seq_len)
+    y_test_labels = test_data.labels
 
     # Load cnn model
     logger.info("✔ Loading model...")

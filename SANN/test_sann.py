@@ -46,7 +46,7 @@ tf.flags.DEFINE_integer("top_num", 5, "Number of top K prediction classes (defau
 tf.flags.DEFINE_float("threshold", 0.5, "Threshold for prediction classes (default: 0.5)")
 
 # Test Parameters
-tf.flags.DEFINE_integer("batch_size", 512, "Batch Size (default: 64)")
+tf.flags.DEFINE_integer("batch_size", 1, "Batch Size (default: 1)")
 
 # Misc Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
@@ -72,6 +72,7 @@ def test_rnn():
 
     logger.info('✔︎ Test data padding...')
     x_test, y_test = dh.pad_data(test_data, FLAGS.pad_seq_len)
+    y_test_labels = test_data.labels
 
     # Load rnn model
     logger.info("✔ Loading model...")
@@ -109,23 +110,21 @@ def test_rnn():
             tf.train.write_graph(output_graph_def, 'graph', 'graph-rnn-{0}.pb'.format(MODEL), as_text=False)
 
             # Generate batches for one epoch
-            batches = dh.batch_iter(list(zip(x_test, y_test)), FLAGS.batch_size, 1, shuffle=False)
+            batches = dh.batch_iter(list(zip(x_test, y_test, y_test_labels)), FLAGS.batch_size, 1, shuffle=False)
 
             # Collect the predictions here
-            all_predicted_label_ts = []
-            all_predicted_values_ts = []
-
-            all_predicted_label_tk = []
-            all_predicted_values_tk = []
+            all_labels = []
+            all_predicted_label = []
+            all_predicted_values = []
+            all_rec_values = []
+            all_acc_values = []
+            all_F_values = []
 
             # Calculate the metric
-            test_counter, test_loss, test_rec_ts, test_acc_ts, test_F_ts = 0, 0.0, 0.0, 0.0, 0.0
-            test_rec_tk = [0.0] * FLAGS.top_num
-            test_acc_tk = [0.0] * FLAGS.top_num
-            test_F_tk = [0.0] * FLAGS.top_num
+            test_counter, test_loss, test_rec, test_acc, test_F = 0, 0.0, 0.0, 0.0, 0.0
 
             for batch_test in batches:
-                x_batch_test, y_batch_test = zip(*batch_test)
+                x_batch_test, y_batch_test, y_batch_test_labels = zip(*batch_test)
                 feed_dict = {
                     input_x: x_batch_test,
                     input_y: y_batch_test,
@@ -138,77 +137,54 @@ def test_rnn():
                 predicted_labels_threshold, predicted_values_threshold = \
                     dh.get_label_using_scores_by_threshold(scores=batch_scores, threshold=FLAGS.threshold)
 
-                cur_rec_ts, cur_acc_ts, cur_F_ts = 0.0, 0.0, 0.0
+                cur_rec, cur_acc, cur_F = 0.0, 0.0, 0.0
 
                 for index, predicted_label_threshold in enumerate(predicted_labels_threshold):
-                    rec_inc_ts, acc_inc_ts = dh.cal_metric(predicted_label_threshold, y_batch_test[index])
-                    cur_rec_ts, cur_acc_ts = cur_rec_ts + rec_inc_ts, cur_acc_ts + acc_inc_ts
+                    rec_inc, acc_inc = dh.cal_metric(predicted_label_threshold, y_batch_test[index])
+                    cur_rec, cur_acc = cur_rec + rec_inc, cur_acc + acc_inc
 
-                cur_rec_ts = cur_rec_ts / len(y_batch_test)
-                cur_acc_ts = cur_acc_ts / len(y_batch_test)
+                cur_rec = cur_rec / len(y_batch_test)
+                cur_acc = cur_acc / len(y_batch_test)
 
-                test_rec_ts, test_acc_ts = test_rec_ts + cur_rec_ts, test_acc_ts + cur_acc_ts
+                cur_F = dh.cal_F(cur_rec, cur_acc)
+
+                test_rec, test_acc = test_rec + cur_rec, test_acc + cur_acc
 
                 # Add results to collection
+                for item in y_batch_test_labels:
+                    all_labels.append(item)
                 for item in predicted_labels_threshold:
-                    all_predicted_label_ts.append(item)
+                    all_predicted_label.append(item)
                 for item in predicted_values_threshold:
-                    all_predicted_values_ts.append(item)
+                    all_predicted_values.append(item)
 
-                # Predict by topK
-                topK_predicted_labels = []
-                for top_num in range(FLAGS.top_num):
-                    predicted_labels_topk, predicted_values_topk = \
-                        dh.get_label_using_scores_by_topk(batch_scores, top_num=top_num + 1)
-                    topK_predicted_labels.append(predicted_labels_topk)
-
-                cur_rec_tk = [0.0] * FLAGS.top_num
-                cur_acc_tk = [0.0] * FLAGS.top_num
-                cur_F_tk = [0.0] * FLAGS.top_num
-
-                for top_num, predicted_labels_topK in enumerate(topK_predicted_labels):
-                    for index, predicted_label_topK in enumerate(predicted_labels_topK):
-                        rec_inc_tk, acc_inc_tk = dh.cal_metric(predicted_label_topK, y_batch_test[index])
-                        cur_rec_tk[top_num], cur_acc_tk[top_num] = \
-                            cur_rec_tk[top_num] + rec_inc_tk, cur_acc_tk[top_num] + acc_inc_tk
-
-                    cur_rec_tk[top_num] = cur_rec_tk[top_num] / len(y_batch_test)
-                    cur_acc_tk[top_num] = cur_acc_tk[top_num] / len(y_batch_test)
-
-                    test_rec_tk[top_num], test_acc_tk[top_num] = \
-                        test_rec_tk[top_num] + cur_rec_tk[top_num], test_acc_tk[top_num] + cur_acc_tk[top_num]
+                all_rec_values.append(cur_rec)
+                all_acc_values.append(cur_acc)
+                all_F_values.append(cur_F)
 
                 test_loss = test_loss + cur_loss
                 test_counter = test_counter + 1
 
             test_loss = float(test_loss / test_counter)
-            test_rec_ts = float(test_rec_ts / test_counter)
-            test_acc_ts = float(test_acc_ts / test_counter)
-            test_F_ts = dh.cal_F(test_rec_ts, test_acc_ts)
-
-            for top_num in range(FLAGS.top_num):
-                test_rec_tk[top_num] = float(test_rec_tk[top_num] / test_counter)
-                test_acc_tk[top_num] = float(test_acc_tk[top_num] / test_counter)
-                test_F_tk[top_num] = dh.cal_F(test_rec_tk[top_num], test_acc_tk[top_num])
+            test_rec = float(test_rec / test_counter)
+            test_acc = float(test_acc / test_counter)
+            test_F = dh.cal_F(test_rec, test_acc)
 
             logger.info("☛ All Test Dataset: Loss {0:g}".format(test_loss))
 
             # Predict by threshold
             logger.info("︎☛ Predict by threshold: Recall {0:g}, accuracy {1:g}, F {2:g}"
-                        .format(test_rec_ts, test_acc_ts, test_F_ts))
-
-            # Predict by topK
-            logger.info("︎☛ Predict by topK:")
-            for top_num in range(FLAGS.top_num):
-                logger.info("Top{0}: recall {1:g}, accuracy {2:g}, F {3:g}"
-                            .format(top_num + 1, test_rec_tk[top_num], test_acc_tk[top_num], test_F_tk[top_num]))
-
+                        .format(test_rec, test_acc, test_F))
             # Save the prediction result
             if not os.path.exists(SAVE_DIR):
                 os.makedirs(SAVE_DIR)
             dh.create_prediction_file(output_file=SAVE_DIR + '/predictions.json', data_id=test_data.testid,
-                                      all_predict_labels_ts=all_predicted_label_ts,
-                                      all_predict_values_ts=all_predicted_values_ts)
+                                      all_labels=all_labels,
+                                      all_predict_labels=all_predicted_label,
+                                      all_predict_values=all_predicted_values,
+                                      all_rec_values=all_rec_values,
+                                      all_acc_values=all_acc_values,
+                                      all_F_values=all_F_values)
 
     logger.info("✔ Done.")
 
