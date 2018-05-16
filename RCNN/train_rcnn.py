@@ -51,14 +51,14 @@ tf.flags.DEFINE_integer("top_num", 5, "Number of top K prediction classes (defau
 tf.flags.DEFINE_float("threshold", 0.5, "Threshold for prediction classes (default: 0.5)")
 
 # Training Parameters
-tf.flags.DEFINE_integer("batch_size", 512, "Batch Size (default: 64)")
-tf.flags.DEFINE_integer("num_epochs", 50, "Number of training epochs (default: 100)")
+tf.flags.DEFINE_integer("batch_size", 1024, "Batch Size (default: 256)")
+tf.flags.DEFINE_integer("num_epochs", 150, "Number of training epochs (default: 100)")
 tf.flags.DEFINE_integer("evaluate_every", 5000, "Evaluate model on dev set after this many steps (default: 5000)")
 tf.flags.DEFINE_float("norm_ratio", 2, "The ratio of the sum of gradients norms of trainable variable (default: 1.25)")
 tf.flags.DEFINE_integer("decay_steps", 2000, "how many steps before decay learning rate. (default: 500)")
 tf.flags.DEFINE_float("decay_rate", 0.95, "Rate of decay for learning rate. (default: 0.95)")
-tf.flags.DEFINE_integer("checkpoint_every", 500, "Save model after this many steps (default: 1000)")
-tf.flags.DEFINE_integer("num_checkpoints", 30, "Number of checkpoints to store (default: 30)")
+tf.flags.DEFINE_integer("checkpoint_every", 1000, "Save model after this many steps (default: 1000)")
+tf.flags.DEFINE_integer("num_checkpoints", 50, "Number of checkpoints to store (default: 50)")
 
 # Misc Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
