@@ -238,7 +238,7 @@ def train_rcnn():
             def validation_step(x_validation, y_validation, writer=None):
                 """Evaluates model on a validation set"""
                 batches_validation = batch_iter(
-                    list(zip(x_validation, y_validation)), FLAGS.batch_size, FLAGS.num_epochs)
+                    list(zip(x_validation, y_validation)), FLAGS.batch_size, 1)
 
                 # Predict classes by threshold or topk ('ts': threshold; 'tk': topk)
                 eval_counter, eval_loss, eval_rec_ts, eval_acc_ts, eval_F_ts = 0, 0.0, 0.0, 0.0, 0.0
