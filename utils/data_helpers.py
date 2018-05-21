@@ -30,8 +30,7 @@ def logger_fn(name, input_file, level=logging.INFO):
     return tf_logger
 
 
-def create_prediction_file(output_file, data_id, all_labels, all_predict_labels, all_predict_values,
-                           all_rec_values, all_acc_values, all_F_values):
+def create_prediction_file(output_file, data_id, all_labels, all_predict_labels, all_predict_values):
     """
     Create the prediction file.
 
@@ -41,9 +40,6 @@ def create_prediction_file(output_file, data_id, all_labels, all_predict_labels,
         all_labels: The all origin labels
         all_predict_labels: The all predict labels by threshold
         all_predict_values: The all predict values by threshold
-        all_rec_values: The all recall values by threshold
-        all_acc_values: The all accuracy values by threshold
-        all_F_values: The all F values by threshold
     Raises:
         IOError: If the prediction file is not a .json file
     """
@@ -60,10 +56,7 @@ def create_prediction_file(output_file, data_id, all_labels, all_predict_labels,
                 ('testid', data_id[i]),
                 ('labels', labels),
                 ('predict_labels', predict_labels),
-                ('predict_values', predict_values),
-                ('recall', all_rec_values[i]),
-                ('accuracy', all_acc_values[i]),
-                ('F', all_F_values[i])
+                ('predict_values', predict_values)
             ])
             fout.write(json.dumps(data_record, ensure_ascii=True) + '\n')
 

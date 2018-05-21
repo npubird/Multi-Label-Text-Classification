@@ -44,7 +44,7 @@ tf.flags.DEFINE_integer("top_num", 5, "Number of top K prediction classes (defau
 tf.flags.DEFINE_float("threshold", 0.5, "Threshold for prediction classes (default: 0.5)")
 
 # Test Parameters
-tf.flags.DEFINE_integer("batch_size", 512, "Batch Size (default: 64)")
+tf.flags.DEFINE_integer("batch_size", 512, "Batch Size (default: 1)")
 
 # Misc Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
@@ -112,11 +112,8 @@ def test_mann():
 
             # Collect the predictions here
             all_labels = []
-            all_predicted_label = []
+            all_predicted_labels = []
             all_predicted_values = []
-            all_rec_values = []
-            all_acc_values = []
-            all_F_values = []
 
             # Calculate the metric
             test_counter, test_loss, test_rec, test_acc, test_F = 0, 0.0, 0.0, 0.0, 0.0
@@ -144,21 +141,15 @@ def test_mann():
                 cur_rec = cur_rec / len(y_batch_test)
                 cur_acc = cur_acc / len(y_batch_test)
 
-                cur_F = dh.cal_F(cur_rec, cur_acc)
-
                 test_rec, test_acc = test_rec + cur_rec, test_acc + cur_acc
 
                 # Add results to collection
                 for item in y_batch_test_labels:
                     all_labels.append(item)
                 for item in predicted_labels_threshold:
-                    all_predicted_label.append(item)
+                    all_predicted_labels.append(item)
                 for item in predicted_values_threshold:
                     all_predicted_values.append(item)
-
-                all_rec_values.append(cur_rec)
-                all_acc_values.append(cur_acc)
-                all_F_values.append(cur_F)
 
                 test_loss = test_loss + cur_loss
                 test_counter = test_counter + 1
@@ -177,12 +168,8 @@ def test_mann():
             if not os.path.exists(SAVE_DIR):
                 os.makedirs(SAVE_DIR)
             dh.create_prediction_file(output_file=SAVE_DIR + '/predictions.json', data_id=test_data.testid,
-                                      all_labels=all_labels,
-                                      all_predict_labels=all_predicted_label,
-                                      all_predict_values=all_predicted_values,
-                                      all_rec_values=all_rec_values,
-                                      all_acc_values=all_acc_values,
-                                      all_F_values=all_F_values)
+                                      all_labels=all_labels, all_predict_labels=all_predicted_labels,
+                                      all_predict_values=all_predicted_values)
 
     logger.info("✔ Done.")
 
