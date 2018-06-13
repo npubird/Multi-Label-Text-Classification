@@ -483,7 +483,7 @@ def plot_seq_len(data_file, data, percentage=0.98):
     avg = avg / data.number
     print('The average of the data sequence length is {0}'.format(avg))
     print('The recommend of padding sequence length should more than {0}'.format(border_index[0]))
-    xlim(0, 200)
+    xlim(0, 400)
     plt.bar(x, y)
     plt.savefig(output_file)
     plt.close()
