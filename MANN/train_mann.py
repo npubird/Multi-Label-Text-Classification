@@ -157,7 +157,7 @@ def train_mann():
                 out_dir = os.path.abspath(os.path.join(os.path.curdir, "runs", timestamp))
                 logger.info("✔︎ Writing to {0}\n".format(out_dir))
 
-            # Summaries for loss and accuracy
+            # Summaries for loss
             loss_summary = tf.summary.scalar("loss", mann.loss)
 
             # Train summaries
@@ -221,9 +221,9 @@ def train_mann():
                     list(zip(x_validation, y_validation)), FLAGS.batch_size, 1)
 
                 # Predict classes by threshold or topk ('ts': threshold; 'tk': topk)
-                eval_counter, eval_loss, eval_rec_ts, eval_acc_ts, eval_F_ts = 0, 0.0, 0.0, 0.0, 0.0
+                eval_counter, eval_loss, eval_rec_ts, eval_pre_ts, eval_F_ts = 0, 0.0, 0.0, 0.0, 0.0
                 eval_rec_tk = [0.0] * FLAGS.top_num
-                eval_acc_tk = [0.0] * FLAGS.top_num
+                eval_pre_tk = [0.0] * FLAGS.top_num
                 eval_F_tk = [0.0] * FLAGS.top_num
 
                 for batch_validation in batches_validation:
@@ -241,18 +241,18 @@ def train_mann():
                     predicted_labels_threshold, predicted_values_threshold = \
                         dh.get_label_using_scores_by_threshold(scores=scores, threshold=FLAGS.threshold)
 
-                    cur_rec_ts, cur_acc_ts, cur_F_ts = 0.0, 0.0, 0.0
+                    cur_rec_ts, cur_pre_ts, cur_F_ts = 0.0, 0.0, 0.0
 
                     for index, predicted_label_threshold in enumerate(predicted_labels_threshold):
-                        rec_inc_ts, acc_inc_ts = dh.cal_metric(predicted_label_threshold, y_batch_validation[index])
-                        cur_rec_ts, cur_acc_ts = cur_rec_ts + rec_inc_ts, cur_acc_ts + acc_inc_ts
+                        rec_inc_ts, pre_inc_ts = dh.cal_metric(predicted_label_threshold, y_batch_validation[index])
+                        cur_rec_ts, cur_pre_ts = cur_rec_ts + rec_inc_ts, cur_pre_ts + pre_inc_ts
 
                     cur_rec_ts = cur_rec_ts / len(y_batch_validation)
-                    cur_acc_ts = cur_acc_ts / len(y_batch_validation)
+                    cur_pre_ts = cur_pre_ts / len(y_batch_validation)
 
-                    cur_F_ts = dh.cal_F(cur_rec_ts, cur_acc_ts)
+                    cur_F_ts = dh.cal_F(cur_rec_ts, cur_pre_ts)
 
-                    eval_rec_ts, eval_acc_ts = eval_rec_ts + cur_rec_ts, eval_acc_ts + cur_acc_ts
+                    eval_rec_ts, eval_pre_ts = eval_rec_ts + cur_rec_ts, eval_pre_ts + cur_pre_ts
 
                     # Predict by topK
                     topK_predicted_labels = []
@@ -262,49 +262,49 @@ def train_mann():
                         topK_predicted_labels.append(predicted_labels_topk)
 
                     cur_rec_tk = [0.0] * FLAGS.top_num
-                    cur_acc_tk = [0.0] * FLAGS.top_num
+                    cur_pre_tk = [0.0] * FLAGS.top_num
                     cur_F_tk = [0.0] * FLAGS.top_num
 
                     for top_num, predicted_labels_topK in enumerate(topK_predicted_labels):
                         for index, predicted_label_topK in enumerate(predicted_labels_topK):
-                            rec_inc_tk, acc_inc_tk = dh.cal_metric(predicted_label_topK, y_batch_validation[index])
-                            cur_rec_tk[top_num], cur_acc_tk[top_num] = \
-                                cur_rec_tk[top_num] + rec_inc_tk, cur_acc_tk[top_num] + acc_inc_tk
+                            rec_inc_tk, pre_inc_tk = dh.cal_metric(predicted_label_topK, y_batch_validation[index])
+                            cur_rec_tk[top_num], cur_pre_tk[top_num] = \
+                                cur_rec_tk[top_num] + rec_inc_tk, cur_pre_tk[top_num] + pre_inc_tk
 
                         cur_rec_tk[top_num] = cur_rec_tk[top_num] / len(y_batch_validation)
-                        cur_acc_tk[top_num] = cur_acc_tk[top_num] / len(y_batch_validation)
+                        cur_pre_tk[top_num] = cur_pre_tk[top_num] / len(y_batch_validation)
 
-                        cur_F_tk[top_num] = dh.cal_F(cur_rec_tk[top_num], cur_acc_tk[top_num])
+                        cur_F_tk[top_num] = dh.cal_F(cur_rec_tk[top_num], cur_pre_tk[top_num])
 
-                        eval_rec_tk[top_num], eval_acc_tk[top_num] = \
-                            eval_rec_tk[top_num] + cur_rec_tk[top_num], eval_acc_tk[top_num] + cur_acc_tk[top_num]
+                        eval_rec_tk[top_num], eval_pre_tk[top_num] = \
+                            eval_rec_tk[top_num] + cur_rec_tk[top_num], eval_pre_tk[top_num] + cur_pre_tk[top_num]
 
                     eval_loss = eval_loss + cur_loss
                     eval_counter = eval_counter + 1
 
                     logger.info("✔︎ validation batch {0}: loss {1:g}".format(eval_counter, cur_loss))
-                    logger.info("︎☛ Predict by threshold: recall {0:g}, accuracy {1:g}, F {2:g}"
-                                .format(cur_rec_ts, cur_acc_ts, cur_F_ts))
+                    logger.info("︎☛ Predict by threshold: recall {0:g}, precision {1:g}, F {2:g}"
+                                .format(cur_rec_ts, cur_pre_ts, cur_F_ts))
 
                     logger.info("︎☛ Predict by topK:")
                     for top_num in range(FLAGS.top_num):
-                        logger.info("Top{0}: recall {1:g}, accuracy {2:g}, F {3:g}"
-                                    .format(top_num + 1, cur_rec_tk[top_num], cur_acc_tk[top_num], cur_F_tk[top_num]))
+                        logger.info("Top{0}: recall {1:g}, precision {2:g}, F {3:g}"
+                                    .format(top_num + 1, cur_rec_tk[top_num], cur_pre_tk[top_num], cur_F_tk[top_num]))
 
                     if writer:
                         writer.add_summary(summaries, step)
 
                 eval_loss = float(eval_loss / eval_counter)
                 eval_rec_ts = float(eval_rec_ts / eval_counter)
-                eval_acc_ts = float(eval_acc_ts / eval_counter)
-                eval_F_ts = dh.cal_F(eval_rec_ts, eval_acc_ts)
+                eval_pre_ts = float(eval_pre_ts / eval_counter)
+                eval_F_ts = dh.cal_F(eval_rec_ts, eval_pre_ts)
 
                 for top_num in range(FLAGS.top_num):
                     eval_rec_tk[top_num] = float(eval_rec_tk[top_num] / eval_counter)
-                    eval_acc_tk[top_num] = float(eval_acc_tk[top_num] / eval_counter)
-                    eval_F_tk[top_num] = dh.cal_F(eval_rec_tk[top_num], eval_acc_tk[top_num])
+                    eval_pre_tk[top_num] = float(eval_pre_tk[top_num] / eval_counter)
+                    eval_F_tk[top_num] = dh.cal_F(eval_rec_tk[top_num], eval_pre_tk[top_num])
 
-                return eval_loss, eval_rec_ts, eval_acc_ts, eval_F_ts, eval_rec_tk, eval_acc_tk, eval_F_tk
+                return eval_loss, eval_rec_ts, eval_pre_ts, eval_F_ts, eval_rec_tk, eval_pre_tk, eval_F_tk
 
             # Generate batches
             batches_train = dh.batch_iter(
@@ -320,20 +320,20 @@ def train_mann():
 
                 if current_step % FLAGS.evaluate_every == 0:
                     logger.info("\nEvaluation:")
-                    eval_loss, eval_rec_ts, eval_acc_ts, eval_F_ts, eval_rec_tk, eval_acc_tk, eval_F_tk = \
+                    eval_loss, eval_rec_ts, eval_pre_ts, eval_F_ts, eval_rec_tk, eval_pre_tk, eval_F_tk = \
                         validation_step(x_validation, y_validation, writer=validation_summary_writer)
 
                     logger.info("All Validation set: Loss {0:g}".format(eval_loss))
 
                     # Predict by threshold
-                    logger.info("︎☛ Predict by threshold: Recall {0:g}, Accuracy {1:g}, F {2:g}"
-                                .format(eval_rec_ts, eval_acc_ts, eval_F_ts))
+                    logger.info("︎☛ Predict by threshold: Recall {0:g}, Precision {1:g}, F {2:g}"
+                                .format(eval_rec_ts, eval_pre_ts, eval_F_ts))
 
                     # Predict by topK
                     logger.info("︎☛ Predict by topK:")
                     for top_num in range(FLAGS.top_num):
-                        logger.info("Top{0}: Recall {1:g}, Accuracy {2:g}, F {3:g}"
-                                    .format(top_num+1, eval_rec_tk[top_num], eval_acc_tk[top_num], eval_F_tk[top_num]))
+                        logger.info("Top{0}: Recall {1:g}, Precision {2:g}, F {3:g}"
+                                    .format(top_num+1, eval_rec_tk[top_num], eval_pre_tk[top_num], eval_F_tk[top_num]))
                 if current_step % FLAGS.checkpoint_every == 0:
                     checkpoint_prefix = os.path.join(checkpoint_dir, "model")
                     path = saver.save(sess, checkpoint_prefix, global_step=current_step)

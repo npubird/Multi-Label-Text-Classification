@@ -114,7 +114,7 @@ def test_ann():
             all_predicted_values = []
 
             # Calculate the metric
-            test_counter, test_loss, test_rec, test_acc, test_F = 0, 0.0, 0.0, 0.0, 0.0
+            test_counter, test_loss, test_rec, test_pre, test_F = 0, 0.0, 0.0, 0.0, 0.0
 
             for batch_test in batches:
                 x_batch_test, y_batch_test, y_batch_test_labels = zip(*batch_test)
@@ -130,16 +130,16 @@ def test_ann():
                 predicted_labels_threshold, predicted_values_threshold = \
                     dh.get_label_using_scores_by_threshold(scores=batch_scores, threshold=FLAGS.threshold)
 
-                cur_rec, cur_acc, cur_F = 0.0, 0.0, 0.0
+                cur_rec, cur_pre, cur_F = 0.0, 0.0, 0.0
 
                 for index, predicted_label_threshold in enumerate(predicted_labels_threshold):
-                    rec_inc, acc_inc = dh.cal_metric(predicted_label_threshold, y_batch_test[index])
-                    cur_rec, cur_acc = cur_rec + rec_inc, cur_acc + acc_inc
+                    rec_inc, pre_inc = dh.cal_metric(predicted_label_threshold, y_batch_test[index])
+                    cur_rec, cur_pre = cur_rec + rec_inc, cur_pre + pre_inc
 
                 cur_rec = cur_rec / len(y_batch_test)
-                cur_acc = cur_acc / len(y_batch_test)
+                cur_pre = cur_pre / len(y_batch_test)
 
-                test_rec, test_acc = test_rec + cur_rec, test_acc + cur_acc
+                test_rec, test_pre = test_rec + cur_rec, test_pre + cur_pre
 
                 # Add results to collection
                 for item in y_batch_test_labels:
@@ -154,14 +154,14 @@ def test_ann():
 
             test_loss = float(test_loss / test_counter)
             test_rec = float(test_rec / test_counter)
-            test_acc = float(test_acc / test_counter)
-            test_F = dh.cal_F(test_rec, test_acc)
+            test_pre = float(test_pre / test_counter)
+            test_F = dh.cal_F(test_rec, test_pre)
 
             logger.info("☛ All Test Dataset: Loss {0:g}".format(test_loss))
 
             # Predict by threshold
-            logger.info("︎☛ Predict by threshold: Recall {0:g}, accuracy {1:g}, F {2:g}"
-                        .format(test_rec, test_acc, test_F))
+            logger.info("︎☛ Predict by threshold: Recall {0:g}, Precision {1:g}, F {2:g}"
+                        .format(test_rec, test_pre, test_F))
             # Save the prediction result
             if not os.path.exists(SAVE_DIR):
                 os.makedirs(SAVE_DIR)

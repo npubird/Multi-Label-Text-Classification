@@ -135,26 +135,26 @@ def cal_metric(predicted_labels, labels):
     for predicted_label in predicted_labels:
         if int(predicted_label) in label_no_zero:
             count += 1
-    rec = count / len(label_no_zero)
-    acc = count / len(predicted_labels)
-    return rec, acc
+    recall = count / len(label_no_zero)
+    precision = count / len(predicted_labels)
+    return recall, precision
 
 
-def cal_F(rec, acc):
+def cal_F(recall, precision):
     """
     Calculate the metric F value.
 
     Args:
-        acc: The accuracy value
-        rec: The recall value
+        recall: The recall value
+        precision: The precision value
     Returns:
         The F value
     """
     F = 0.0
-    if (rec + acc) == 0:
+    if (recall + precision) == 0:
         F = 0.0
     else:
-        F = (2 * rec * acc) / (rec + acc)
+        F = (2 * recall * precision) / (recall + precision)
     return F
 
 
