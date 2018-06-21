@@ -85,7 +85,7 @@ References:
 
 ### TextRNN
 
-**Warning: Model can use Not finished yet 🤪!**
+**Warning: Model can use but not finished yet 🤪!**
 
 #### TODO
 1. Add BN-LSTM cell unit.
@@ -128,16 +128,6 @@ References:
 References:
 
 - [Hierarchical Attention Networks for Document Classification](https://www.cs.cmu.edu/~diyiy/docs/naacl16.pdf)
-
----
-
-### TextMANN
-
-**Warning: Not finished yet 🤪!**
-
-![]()
-
-References:
 
 ---
 
