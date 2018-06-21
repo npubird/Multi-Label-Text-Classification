@@ -110,6 +110,7 @@ runs/
 graph/
 RNN/MyAttention.py
 RNN/text_rnn-raw.py
+MANN/
 
 # Analysis File
 Data Analysis.md
