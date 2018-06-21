@@ -119,35 +119,40 @@ class TextCRNN(object):
             pooled_outputs.append(pooled)
 
         # Combine all the pooled features
-        num_filters_total = num_filters * len(filter_sizes)
-        self.pool = tf.concat(pooled_outputs, 3)
-        self.pool_flat = tf.reshape(self.pool, [-1, 1, num_filters_total])
-        self.pool_flat = tf.nn.dropout(self.pool_flat, self.dropout_keep_prob)
+        pool_flat_outputs = []
+        for i in pooled_outputs:
+            pool_flat = tf.reshape(i, [-1, 1, num_filters])
+            pool_flat = tf.nn.dropout(pool_flat, self.dropout_keep_prob)
+            pool_flat_outputs.append(pool_flat)
 
+        lstm_outputs = []
         # Bi-LSTM Layer
-        with tf.name_scope("Bi-lstm"):
-            lstm_fw_cell = rnn.BasicLSTMCell(lstm_hidden_size)  # forward direction cell
-            lstm_bw_cell = rnn.BasicLSTMCell(lstm_hidden_size)  # backward direction cell
-            if self.dropout_keep_prob is not None:
-                lstm_fw_cell = rnn.DropoutWrapper(lstm_fw_cell, output_keep_prob=self.dropout_keep_prob)
-                lstm_bw_cell = rnn.DropoutWrapper(lstm_bw_cell, output_keep_prob=self.dropout_keep_prob)
+        for index, pool_flat in enumerate(pool_flat_outputs):
+            with tf.variable_scope("Bi-lstm-{0}".format(index)):
+                lstm_fw_cell = rnn.BasicLSTMCell(lstm_hidden_size)  # forward direction cell
+                lstm_bw_cell = rnn.BasicLSTMCell(lstm_hidden_size)  # backward direction cell
+                if self.dropout_keep_prob is not None:
+                    lstm_fw_cell = rnn.DropoutWrapper(lstm_fw_cell, output_keep_prob=self.dropout_keep_prob)
+                    lstm_bw_cell = rnn.DropoutWrapper(lstm_bw_cell, output_keep_prob=self.dropout_keep_prob)
 
-            # Creates a dynamic bidirectional recurrent neural network
-            # shape of `outputs`: tuple -> (outputs_fw, outputs_bw)
-            # shape of `outputs_fw`: [batch_size, sequence_length, hidden_size]
+                # Creates a dynamic bidirectional recurrent neural network
+                # shape of `outputs`: tuple -> (outputs_fw, outputs_bw)
+                # shape of `outputs_fw`: [batch_size, sequence_length, hidden_size]
 
-            # shape of `state`: tuple -> (outputs_state_fw, output_state_bw)
-            # shape of `outputs_state_fw`: tuple -> (c, h) c: memory cell; h: hidden state
-            outputs, state = tf.nn.bidirectional_dynamic_rnn(lstm_fw_cell, lstm_bw_cell,
-                                                             self.pool_flat, dtype=tf.float32)
+                # shape of `state`: tuple -> (outputs_state_fw, output_state_bw)
+                # shape of `outputs_state_fw`: tuple -> (c, h) c: memory cell; h: hidden state
 
-        # Concat output
-        self.lstm_concat = tf.concat(outputs, axis=2)  # [batch_size, 1, hidden_size * 2]
-        self.lstm_out = tf.reduce_mean(self.lstm_concat, axis=1)  # [batch_size, hidden_size * 2]
+                outputs, state = tf.nn.bidirectional_dynamic_rnn(lstm_fw_cell, lstm_bw_cell, pool_flat, dtype=tf.float32)
+                # Concat output
+                lstm_concat = tf.concat(outputs, axis=2)
+                lstm_out = tf.reduce_mean(lstm_concat, axis=1)
+                lstm_outputs.append(lstm_out)
+
+        self.lstm_out = tf.concat(lstm_outputs, 1)
 
         # Fully Connected Layer
         with tf.name_scope("fc"):
-            W = tf.Variable(tf.truncated_normal(shape=[lstm_hidden_size * 2, fc_hidden_size],
+            W = tf.Variable(tf.truncated_normal(shape=[lstm_hidden_size * 6, fc_hidden_size],
                                                 stddev=0.1, dtype=tf.float32), name="W")
             b = tf.Variable(tf.constant(0.1, shape=[fc_hidden_size], dtype=tf.float32), name="b")
             self.fc = tf.nn.xw_plus_b(self.lstm_out, W, b)
