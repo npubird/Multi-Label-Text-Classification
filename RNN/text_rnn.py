@@ -193,7 +193,7 @@ class TextRNN(object):
 
             # Creates a dynamic bidirectional recurrent neural network
             # shape of `outputs`: tuple -> (outputs_fw, outputs_bw)
-            # shape of `outputs_fw`: [batch_size, sequence_length, hidden_size]
+            # shape of `outputs_fw`: [batch_size, sequence_length, lstm_hidden_size]
 
             # shape of `state`: tuple -> (outputs_state_fw, output_state_bw)
             # shape of `outputs_state_fw`: tuple -> (c, h) c: memory cell; h: hidden state
@@ -201,8 +201,8 @@ class TextRNN(object):
                                                              self.embedded_sentence, dtype=tf.float32)
 
         # Concat output
-        self.lstm_concat = tf.concat(outputs, axis=2)  # [batch_size, sequence_length, hidden_size * 2]
-        self.lstm_out = tf.reduce_mean(self.lstm_concat, axis=1)  # [batch_size, hidden_size * 2]
+        self.lstm_concat = tf.concat(outputs, axis=2)  # [batch_size, sequence_length, lstm_hidden_size * 2]
+        self.lstm_out = tf.reduce_mean(self.lstm_concat, axis=1)  # [batch_size, lstm_hidden_size * 2]
 
         # Fully Connected Layer
         with tf.name_scope("fc"):

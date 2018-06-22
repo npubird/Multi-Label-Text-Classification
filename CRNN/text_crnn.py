@@ -137,22 +137,24 @@ class TextCRNN(object):
 
                 # Creates a dynamic bidirectional recurrent neural network
                 # shape of `outputs`: tuple -> (outputs_fw, outputs_bw)
-                # shape of `outputs_fw`: [batch_size, sequence_length, hidden_size]
+                # shape of `outputs_fw`: [batch_size, sequence_length, lstm_hidden_size]
 
                 # shape of `state`: tuple -> (outputs_state_fw, output_state_bw)
                 # shape of `outputs_state_fw`: tuple -> (c, h) c: memory cell; h: hidden state
 
                 outputs, state = tf.nn.bidirectional_dynamic_rnn(lstm_fw_cell, lstm_bw_cell, pool_flat, dtype=tf.float32)
                 # Concat output
-                lstm_concat = tf.concat(outputs, axis=2)
-                lstm_out = tf.reduce_mean(lstm_concat, axis=1)
+                lstm_concat = tf.concat(outputs, axis=2)  # [batch_size, sequence_length, lstm_hidden_size * 2]
+                lstm_out = tf.reduce_mean(lstm_concat, axis=1)  # [batch_size, lstm_hidden_size * 2]
+
+                # shape of `lstm_outputs`: list -> len(filter_sizes) * [batch_size, lstm_hidden_size * 2]
                 lstm_outputs.append(lstm_out)
 
-        self.lstm_out = tf.concat(lstm_outputs, 1)
+        self.lstm_out = tf.concat(lstm_outputs, 1)  # [batch_size, lstm_hidden_size * 2 * len(filter_sizes)]
 
         # Fully Connected Layer
         with tf.name_scope("fc"):
-            W = tf.Variable(tf.truncated_normal(shape=[lstm_hidden_size * 6, fc_hidden_size],
+            W = tf.Variable(tf.truncated_normal(shape=[lstm_hidden_size * 2 * len(filter_sizes), fc_hidden_size],
                                                 stddev=0.1, dtype=tf.float32), name="W")
             b = tf.Variable(tf.constant(0.1, shape=[fc_hidden_size], dtype=tf.float32), name="b")
             self.fc = tf.nn.xw_plus_b(self.lstm_out, W, b)
