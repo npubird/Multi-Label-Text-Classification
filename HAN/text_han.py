@@ -2,7 +2,8 @@
 __author__ = 'Randolph'
 
 import tensorflow as tf
-
+from tensorflow.contrib import rnn
+from tensorflow.contrib.layers import batch_norm
 
 def linear(input_, output_size, scope=None):
     """
@@ -55,7 +56,7 @@ class TextHAN(object):
     """A HAN for text classification."""
 
     def __init__(
-            self, sequence_length, num_classes, batch_size, vocab_size, hidden_size,
+            self, sequence_length, num_classes, batch_size, vocab_size, lstm_hidden_size, fc_hidden_size,
             embedding_size, embedding_type, l2_reg_lambda=0.0, pretrained_embedding=None):
 
         # Placeholders for input, output, dropout_prob and training_tag
@@ -81,12 +82,57 @@ class TextHAN(object):
                                                  dtype=tf.float32, name="embedding")
             self.embedded_sentence = tf.nn.embedding_lookup(self.embedding, self.input_x)
 
+        # Bi-LSTM Layer
+        with tf.name_scope("Bi-lstm"):
+            lstm_fw_cell = rnn.BasicLSTMCell(lstm_hidden_size)  # forward direction cell
+            lstm_bw_cell = rnn.BasicLSTMCell(lstm_hidden_size)  # backward direction cell
+            if self.dropout_keep_prob is not None:
+                lstm_fw_cell = rnn.DropoutWrapper(lstm_fw_cell, output_keep_prob=self.dropout_keep_prob)
+                lstm_bw_cell = rnn.DropoutWrapper(lstm_bw_cell, output_keep_prob=self.dropout_keep_prob)
+
+            # Creates a dynamic bidirectional recurrent neural network
+            # shape of `outputs`: tuple -> (outputs_fw, outputs_bw)
+            # shape of `outputs_fw`: [batch_size, sequence_length, hidden_size]
+
+            # shape of `state`: tuple -> (outputs_state_fw, output_state_bw)
+            # shape of `outputs_state_fw`: tuple -> (c, h) c: memory cell; h: hidden state
+            outputs, state = tf.nn.bidirectional_dynamic_rnn(lstm_fw_cell, lstm_bw_cell,
+                                                             self.embedded_sentence, dtype=tf.float32)
+
+        # Concat output
+        self.lstm_concat = tf.concat(outputs, axis=2)  # [batch_size, sequence_length, hidden_size * 2]
+        self.lstm_out = tf.reduce_mean(self.lstm_concat, axis=1)  # [batch_size, hidden_size * 2]
+
+        # Attention Layer
+        with tf.name_scope("attention"):
+            num_units = self.lstm_out.get_shape().as_list()[-1] # Get last dimension [lstm_hidden_size * 2]
+
+        # Fully Connected Layer
+        with tf.name_scope("fc"):
+            W = tf.Variable(tf.truncated_normal(shape=[lstm_hidden_size * 2, fc_hidden_size],
+                                                stddev=0.1, dtype=tf.float32), name="W")
+            b = tf.Variable(tf.constant(0.1, shape=[fc_hidden_size], dtype=tf.float32), name="b")
+            self.fc = tf.nn.xw_plus_b(self.lstm_out, W, b)
+
+            # Batch Normalization Layer
+            self.fc_bn = batch_norm(self.fc, is_training=self.is_training, trainable=True, updates_collections=None)
+
+            # Apply nonlinearity
+            self.fc_out = tf.nn.relu(self.fc_bn, name="relu")
+
+        # Highway Layer
+        self.highway = highway(self.fc_out, self.fc_out.get_shape()[1], num_layers=1, bias=0, scope="Highway")
+
+        # Add dropout
+        with tf.name_scope("dropout"):
+            self.h_drop = tf.nn.dropout(self.highway, self.dropout_keep_prob)
+
         # Final scores
         with tf.name_scope("output"):
-            W = tf.Variable(tf.truncated_normal(shape=[hidden_size, num_classes],
+            W = tf.Variable(tf.truncated_normal(shape=[fc_hidden_size, num_classes],
                                                 stddev=0.1, dtype=tf.float32), name="W")
             b = tf.Variable(tf.constant(0.1, shape=[num_classes], dtype=tf.float32), name="b")
-            self.logits = tf.nn.xw_plus_b(self.embedded_sentence, W, b, name="logits")
+            self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="logits")
             self.scores = tf.sigmoid(self.logits, name="scores")
 
         # Calculate mean cross-entropy loss, L2 loss
