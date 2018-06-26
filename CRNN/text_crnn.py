@@ -116,6 +116,7 @@ class TextCRNN(object):
                     strides=[1, 1, 1, 1],
                     padding="VALID",
                     name="pool")
+
             pooled_outputs.append(pooled)
 
         # Combine all the pooled features
