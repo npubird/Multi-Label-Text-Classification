@@ -69,6 +69,10 @@ References:
 
 ![]()
 
+References:
+
+- **Personal ideas 🙃**
+
 ---
 
 
@@ -115,13 +119,13 @@ References:
 
 ![]()
 
+References:
 
+- **Personal ideas 🙃**
 
 ---
 
 ### TextHAN
-
-**Warning: Not finished yet 🤪!**
 
 ![]()
 
