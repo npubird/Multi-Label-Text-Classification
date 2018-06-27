@@ -109,7 +109,6 @@ def train_han():
             han = TextHAN(
                 sequence_length=FLAGS.pad_seq_len,
                 num_classes=FLAGS.num_classes,
-                batch_size=FLAGS.batch_size,
                 vocab_size=VOCAB_SIZE,
                 lstm_hidden_size=FLAGS.lstm_hidden_size,
                 fc_hidden_size=FLAGS.fc_hidden_size,

@@ -5,6 +5,7 @@ import tensorflow as tf
 from tensorflow.contrib import rnn
 from tensorflow.contrib.layers import batch_norm
 
+
 def linear(input_, output_size, scope=None):
     """
     Linear map: output[k] = sum_i(Matrix[k, i] * args[i] ) + Bias[k]
@@ -56,7 +57,7 @@ class TextHAN(object):
     """A HAN for text classification."""
 
     def __init__(
-            self, sequence_length, num_classes, batch_size, vocab_size, lstm_hidden_size, fc_hidden_size,
+            self, sequence_length, num_classes, vocab_size, lstm_hidden_size, fc_hidden_size,
             embedding_size, embedding_type, l2_reg_lambda=0.0, pretrained_embedding=None):
 
         # Placeholders for input, output, dropout_prob and training_tag
@@ -92,7 +93,7 @@ class TextHAN(object):
 
             # Creates a dynamic bidirectional recurrent neural network
             # shape of `outputs`: tuple -> (outputs_fw, outputs_bw)
-            # shape of `outputs_fw`: [batch_size, sequence_length, hidden_size]
+            # shape of `outputs_fw`: [batch_size, sequence_length, lstm_hidden_size]
 
             # shape of `state`: tuple -> (outputs_state_fw, output_state_bw)
             # shape of `outputs_state_fw`: tuple -> (c, h) c: memory cell; h: hidden state
@@ -100,19 +101,33 @@ class TextHAN(object):
                                                              self.embedded_sentence, dtype=tf.float32)
 
         # Concat output
-        self.lstm_concat = tf.concat(outputs, axis=2)  # [batch_size, sequence_length, hidden_size * 2]
-        self.lstm_out = tf.reduce_mean(self.lstm_concat, axis=1)  # [batch_size, hidden_size * 2]
+        self.lstm_concat = tf.concat(outputs, axis=2)  # [batch_size, sequence_length, lstm_hidden_size * 2]
 
         # Attention Layer
         with tf.name_scope("attention"):
-            num_units = self.lstm_out.get_shape().as_list()[-1] # Get last dimension [lstm_hidden_size * 2]
+            num_units = self.lstm_concat.get_shape().as_list()[-1]  # Get last dimension [lstm_hidden_size * 2]
+            u_attention = tf.Variable(tf.truncated_normal(shape=[num_units], stddev=0.1, dtype=tf.float32),
+                                      name="u_attention")
+            # 1. One-Layer MLP
+            W = tf.Variable(tf.truncated_normal(shape=[lstm_hidden_size * 2, num_units],
+                                                stddev=0.1, dtype=tf.float32), name="W")
+            b = tf.Variable(tf.constant(0.1, shape=[num_units], dtype=tf.float32), name="b")
+            # shape of `u`: [batch_size, sequence_length, num_units]
+            u = tf.layers.dense(self.lstm_concat, num_units, activation=tf.nn.tanh, use_bias=True)
+
+            # 2. Compute weight by computing similarity of u and attention vector u_attention
+            score = tf.multiply(u, u_attention)  # [batch_size, sequence_length, num_units]
+            weight = tf.reduce_mean(score, axis=2, keepdims=True)  # [batch_size, sequence_length, 1]
+
+            # 3. Weight sum
+            self.attention = tf.reduce_sum(tf.multiply(u, weight), axis=1)  # [batch_size, num_units]
 
         # Fully Connected Layer
         with tf.name_scope("fc"):
-            W = tf.Variable(tf.truncated_normal(shape=[lstm_hidden_size * 2, fc_hidden_size],
+            W = tf.Variable(tf.truncated_normal(shape=[num_units, fc_hidden_size],
                                                 stddev=0.1, dtype=tf.float32), name="W")
             b = tf.Variable(tf.constant(0.1, shape=[fc_hidden_size], dtype=tf.float32), name="b")
-            self.fc = tf.nn.xw_plus_b(self.lstm_out, W, b)
+            self.fc = tf.nn.xw_plus_b(self.attention, W, b)
 
             # Batch Normalization Layer
             self.fc_bn = batch_norm(self.fc, is_training=self.is_training, trainable=True, updates_collections=None)
