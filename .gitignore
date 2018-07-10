@@ -114,20 +114,14 @@ MANN/
 
 # Analysis File
 Data Analysis.md
-Tag-Merge/
-Total-Merge/
 
 # Log File
 logs/
 
 # Related Code
 temp.py
-build_content.py
-build_pairs.py
-db_operation.py
 
 ### Else ###
 randolph/
 Icon?
 *.graffle
-photinia
