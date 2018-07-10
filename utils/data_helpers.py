@@ -341,7 +341,7 @@ def data_augmented(data, drop_rate=1.0):
     aug_testid = data.testid
     aug_tokenindex = data.tokenindex
     aug_labels = data.labels
-    aug_onehot_label = data.onehot_labels
+    aug_onehot_labels = data.onehot_labels
     aug_labels_num = data.labels_num
 
     if data.labels_bind:
@@ -358,7 +358,7 @@ def data_augmented(data, drop_rate=1.0):
             aug_testid.append(data.testid[i])
             aug_tokenindex.append(data_record)
             aug_labels.append(data.labels[i])
-            aug_onehot_label.append(data.onehot_labels[i])
+            aug_onehot_labels.append(data.onehot_labels[i])
             aug_labels_num.append(data.labels_num[i])
 
             if data.labels_bind:
@@ -377,7 +377,7 @@ def data_augmented(data, drop_rate=1.0):
                 aug_testid.append(data.testid[i])
                 aug_tokenindex.append(list(new_data_record))
                 aug_labels.append(data.labels[i])
-                aug_onehot_label.append(data.onehot_labels[i])
+                aug_onehot_labels.append(data.onehot_labels[i])
                 aug_labels_num.append(data.labels_num[i])
 
                 if data.labels_bind:
@@ -405,11 +405,11 @@ def data_augmented(data, drop_rate=1.0):
 
         @property
         def labels(self):
-            return  aug_labels
+            return aug_labels
 
         @property
         def onehot_labels(self):
-            return aug_onehot_label
+            return aug_onehot_labels
 
         @property
         def labels_num(self):
@@ -475,9 +475,6 @@ def load_data_and_labels(data_file, num_labels, embedding_size, data_aug_flag):
         data = data_augmented(data)
 
     # plot_seq_len(data_file, data)
-
-    # print('Found {0} texts.'.format(data.number))
-    # print.info('Augmented {0} texts.'.format(aug_data.number))
 
     return data
 
