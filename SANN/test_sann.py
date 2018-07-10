@@ -60,8 +60,8 @@ logger.info('\n'.join([dilim, *['{0:>50}|{1:<50}'.format(attr.upper(), FLAGS.__g
                                 for attr in sorted(FLAGS.__dict__['__wrapped'])], dilim]))
 
 
-def test_rnn():
-    """Test RNN model."""
+def test_sann():
+    """Test SANN model."""
 
     # Load data
     logger.info("✔ Loading data...")
@@ -75,7 +75,7 @@ def test_rnn():
     x_test, y_test = dh.pad_data(test_data, FLAGS.pad_seq_len)
     y_test_labels = test_data.labels
 
-    # Load rnn model
+    # Load sann model
     logger.info("✔ Loading model...")
     checkpoint_file = tf.train.latest_checkpoint(FLAGS.checkpoint_dir)
     logger.info(checkpoint_file)
@@ -108,7 +108,7 @@ def test_rnn():
             # Save the .pb model file
             output_graph_def = tf.graph_util.convert_variables_to_constants(sess, sess.graph_def,
                                                                             output_node_names.split("|"))
-            tf.train.write_graph(output_graph_def, 'graph', 'graph-rnn-{0}.pb'.format(MODEL), as_text=False)
+            tf.train.write_graph(output_graph_def, 'graph', 'graph-sann-{0}.pb'.format(MODEL), as_text=False)
 
             # Generate batches for one epoch
             batches = dh.batch_iter(list(zip(x_test, y_test, y_test_labels)), FLAGS.batch_size, 1, shuffle=False)
@@ -178,4 +178,4 @@ def test_rnn():
 
 
 if __name__ == '__main__':
-    test_rnn()
+    test_sann()
