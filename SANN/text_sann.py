@@ -185,8 +185,8 @@ class TextSANN(object):
                                                  dtype=tf.float32, name="embedding")
             self.embedded_sentence = tf.nn.embedding_lookup(self.embedding, self.input_x)
 
+        # Bi-LSTM Layer
         with tf.name_scope("Bi-lstm"):
-            # Bi-LSTM Layer
             lstm_fw_cell = rnn.BasicLSTMCell(lstm_hidden_size)  # forward direction cell
             lstm_bw_cell = rnn.BasicLSTMCell(lstm_hidden_size)  # backward direction cell
             if self.dropout_keep_prob is not None:
