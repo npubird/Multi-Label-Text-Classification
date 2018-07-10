@@ -225,49 +225,6 @@ def load_vocab_size(embedding_size):
     return len(model.wv.vocab.items())
 
 
-def data_augmented(data_tokenindex, data_labels):
-    """Data augmented"""
-    #TODO
-    aug_data = []
-    aug_label = []
-    aug_num = 0
-    for i in range(len(data_tokenindex)):
-        data_record = data_tokenindex[i]
-        if len(data_record) == 1:  # 句子长度为 1，则不进行增广
-            continue
-        elif len(data_record) == 2:  # 句子长度为 2，则交换两个词的顺序
-            data_record[0], data_record[1] = data_record[1], data_record[0]
-            aug_data.append(data_record)
-            aug_label.append(data_labels[i])
-            aug_num += 1
-        else:
-            data_record = np.array(data_record)
-            for num in range(len(data_record) - 1):  # 打乱词的次数，次数即生成样本的个数；次数根据句子长度而定
-                data_shuffled = np.random.permutation(np.arange(len(data_record)))
-                new_data_record = data_record[data_shuffled]
-                aug_data.append(list(new_data_record))
-                aug_label.append(data_labels[i])
-                aug_num += 1
-
-    class AugData:
-        def __init__(self):
-            pass
-
-        @property
-        def number(self):
-            return aug_num
-
-        @property
-        def labels(self):
-            return aug_label
-
-        @property
-        def tokenindex(self):
-            return aug_data
-
-    return AugData()
-
-
 def data_word2vec(input_file, num_labels, word2vec_model):
     """
     Create the research data tokenindex based on the word2vec model file.
@@ -370,6 +327,101 @@ def data_word2vec(input_file, num_labels, word2vec_model):
     return Data()
 
 
+def data_augmented(data, drop_rate=1.0):
+    """
+    Data augmented.
+
+    Args:
+        data: The Class Data()
+        drop_rate: The drop rate
+    Return:
+        aug_data
+    """
+    aug_num = data.number
+    aug_testid = data.testid
+    aug_tokenindex = data.tokenindex
+    aug_labels = data.labels
+    aug_onehot_label = data.onehot_labels
+    aug_labels_num = data.labels_num
+
+    if data.labels_bind:
+        aug_labels_bind = data.labels_bind
+    else:
+        aug_labels_bind = None
+
+    for i in range(len(data.tokenindex)):
+        data_record = data.tokenindex[i]
+        if len(data_record) == 1:  # 句子长度为 1，则不进行增广
+            continue
+        elif len(data_record) == 2:  # 句子长度为 2，则交换两个词的顺序
+            data_record[0], data_record[1] = data_record[1], data_record[0]
+            aug_testid.append(data.testid[i])
+            aug_tokenindex.append(data_record)
+            aug_labels.append(data.labels[i])
+            aug_onehot_label.append(data.onehot_labels[i])
+            aug_labels_num.append(data.labels_num[i])
+
+            if data.labels_bind:
+                aug_labels_bind.append(data.labels_bind[i])
+            else:
+                aug_labels_bind = None
+
+            aug_num += 1
+        else:
+            data_record = np.array(data_record)
+            for num in range(len(data_record) // 20):  # 打乱词的次数，次数即生成样本的个数；次数根据句子长度而定
+                # random shuffle & random drop
+                data_shuffled = np.random.permutation(np.arange(int(len(data_record) * drop_rate)))
+                new_data_record = data_record[data_shuffled]
+
+                aug_testid.append(data.testid[i])
+                aug_tokenindex.append(list(new_data_record))
+                aug_labels.append(data.labels[i])
+                aug_onehot_label.append(data.onehot_labels[i])
+                aug_labels_num.append(data.labels_num[i])
+
+                if data.labels_bind:
+                    aug_labels_bind.append(data.labels_bind[i])
+                else:
+                    aug_labels_bind = None
+
+                aug_num += 1
+
+    class AugData:
+        def __init__(self):
+            pass
+
+        @property
+        def number(self):
+            return aug_num
+
+        @property
+        def testid(self):
+            return aug_testid
+
+        @property
+        def tokenindex(self):
+            return aug_tokenindex
+
+        @property
+        def labels(self):
+            return  aug_labels
+
+        @property
+        def onehot_labels(self):
+            return aug_onehot_label
+
+        @property
+        def labels_num(self):
+            return aug_labels_num
+
+        @property
+        def labels_bind(self):
+            return aug_labels_bind
+
+    return AugData()
+
+
 def load_word2vec_matrix(vocab_size, embedding_size):
     """
     Return the word2vec model matrix.
@@ -396,7 +448,7 @@ def load_word2vec_matrix(vocab_size, embedding_size):
     return vector
 
 
-def load_data_and_labels(data_file, num_labels, embedding_size):
+def load_data_and_labels(data_file, num_labels, embedding_size, data_aug_flag):
     """
     Loads research data from files, splits the data into words and generates labels.
     Returns split sentences, labels and the max sentence length of the research data.
@@ -405,6 +457,7 @@ def load_data_and_labels(data_file, num_labels, embedding_size):
         data_file: The research data
         num_labels: The number of classes
         embedding_size: The embedding size
+        data_aug_flag: The flag of data augmented
     Returns:
         The class Data
     """
@@ -418,7 +471,8 @@ def load_data_and_labels(data_file, num_labels, embedding_size):
 
     # Load data from files and split by words
     data = data_word2vec(input_file=data_file, num_labels=num_labels, word2vec_model=model)
-    # aug_data = data_augmented(data_tokenindex=data.tokenindex, data_labels=data.labels)
+    if data_aug_flag:
+        data = data_augmented(data)
 
     # plot_seq_len(data_file, data)
 
