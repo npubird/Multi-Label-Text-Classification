@@ -68,7 +68,8 @@ def test_rnn():
     logger.info('Recommended padding Sequence length is: {0}'.format(FLAGS.pad_seq_len))
 
     logger.info('✔︎ Test data processing...')
-    test_data = dh.load_data_and_labels(FLAGS.test_data_file, FLAGS.num_classes, FLAGS.embedding_dim)
+    test_data = dh.load_data_and_labels(FLAGS.test_data_file, FLAGS.num_classes,
+                                        FLAGS.embedding_dim, data_aug_flag=False)
 
     logger.info('✔︎ Test data padding...')
     x_test, y_test = dh.pad_data(test_data, FLAGS.pad_seq_len)

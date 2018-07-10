@@ -80,11 +80,12 @@ def train_han():
     logger.info('✔︎ Loading data...')
 
     logger.info('✔︎ Training data processing...')
-    train_data = dh.load_data_and_labels(FLAGS.training_data_file, FLAGS.num_classes, FLAGS.embedding_dim)
+    train_data = dh.load_data_and_labels(FLAGS.training_data_file, FLAGS.num_classes,
+                                         FLAGS.embedding_dim, data_aug_flag=False)
 
     logger.info('✔︎ Validation data processing...')
-    validation_data = \
-        dh.load_data_and_labels(FLAGS.validation_data_file, FLAGS.num_classes, FLAGS.embedding_dim)
+    validation_data = dh.load_data_and_labels(FLAGS.validation_data_file, FLAGS.num_classes,
+                                              FLAGS.embedding_dim, data_aug_flag=False)
 
     logger.info('Recommended padding Sequence length is: {0}'.format(FLAGS.pad_seq_len))
 

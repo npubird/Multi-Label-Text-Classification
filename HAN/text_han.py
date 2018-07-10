@@ -109,9 +109,9 @@ class TextHAN(object):
             u_attention = tf.Variable(tf.truncated_normal(shape=[num_units], stddev=0.1, dtype=tf.float32),
                                       name="u_attention")
             # 1. One-Layer MLP
-            W = tf.Variable(tf.truncated_normal(shape=[lstm_hidden_size * 2, num_units],
-                                                stddev=0.1, dtype=tf.float32), name="W")
-            b = tf.Variable(tf.constant(0.1, shape=[num_units], dtype=tf.float32), name="b")
+            # W = tf.Variable(tf.truncated_normal(shape=[lstm_hidden_size * 2, num_units],
+            #                                     stddev=0.1, dtype=tf.float32), name="W")
+            # b = tf.Variable(tf.constant(0.1, shape=[num_units], dtype=tf.float32), name="b")
             # shape of `u`: [batch_size, sequence_length, num_units]
             u = tf.layers.dense(self.lstm_concat, num_units, activation=tf.nn.tanh, use_bias=True)
 
