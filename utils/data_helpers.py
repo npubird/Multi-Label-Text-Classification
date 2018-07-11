@@ -119,7 +119,7 @@ def get_label_using_scores_by_topk(scores, top_num=1):
 
 def cal_metric(predicted_labels, labels):
     """
-    Calculate the metric(recall, accuracy).
+    Calculate the metric(recall, precision).
 
     Args:
         predicted_labels: The predicted_labels
