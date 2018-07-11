@@ -369,7 +369,7 @@ def data_augmented(data, drop_rate=1.0):
             aug_num += 1
         else:
             data_record = np.array(data_record)
-            for num in range(len(data_record) // 20):  # 打乱词的次数，次数即生成样本的个数；次数根据句子长度而定
+            for num in range(len(data_record) // 10):  # 打乱词的次数，次数即生成样本的个数；次数根据句子长度而定
                 # random shuffle & random drop
                 data_shuffled = np.random.permutation(np.arange(int(len(data_record) * drop_rate)))
                 new_data_record = data_record[data_shuffled]
