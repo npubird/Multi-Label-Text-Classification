@@ -44,6 +44,10 @@ tf.flags.DEFINE_float("learning_rate", 0.001, "The learning rate (default: 0.001
 tf.flags.DEFINE_integer("pad_seq_len", 100, "Recommended padding Sequence length of data (depends on the data)")
 tf.flags.DEFINE_integer("embedding_dim", 100, "Dimensionality of character embedding (default: 128)")
 tf.flags.DEFINE_integer("embedding_type", 1, "The embedding type (default: 1)")
+tf.flags.DEFINE_integer("lstm_hidden_size", 256, "Hidden size for bi-lstm layer(default: 256)")
+tf.flags.DEFINE_integer("fc_hidden_size", 1024, "Hidden size for fully connected layer (default: 1024)")
+tf.flags.DEFINE_string("filter_sizes", "3,4,5", "Comma-separated filter sizes (default: '3,4,5')")
+tf.flags.DEFINE_integer("num_filters", 128, "Number of filters per filter size (default: 128)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 0.0)")
 tf.flags.DEFINE_integer("num_classes", 367, "Number of labels (depends on the task)")
@@ -109,10 +113,13 @@ def train_rcnn():
             rcnn = TextRCNN(
                 sequence_length=FLAGS.pad_seq_len,
                 num_classes=FLAGS.num_classes,
-                batch_size=FLAGS.batch_size,
                 vocab_size=VOCAB_SIZE,
+                lstm_hidden_size=FLAGS.lstm_hidden_size,
+                fc_hidden_size=FLAGS.fc_hidden_size,
                 embedding_size=FLAGS.embedding_dim,
                 embedding_type=FLAGS.embedding_type,
+                filter_sizes=list(map(int, FLAGS.filter_sizes.split(","))),
+                num_filters=FLAGS.num_filters,
                 l2_reg_lambda=FLAGS.l2_reg_lambda,
                 pretrained_embedding=pretrained_word2vec_matrix)
 
@@ -199,30 +206,6 @@ def train_rcnn():
 
             current_step = sess.run(rcnn.global_step)
 
-            def batch_iter(data, batch_size, num_epochs, shuffle=True):
-                """
-                The function <batch_iter> in data_helpers.py will create the data batch
-                which has not exactly batch size since that we have to overwrite the function for rcnn
-                Because rcnn need the all batches has the exact batch size otherwise will raise error
-                """
-                data = np.array(data)
-                data_size = len(data)
-                # Just the diff in var num_batches_per_epoch
-                # Do not plus one in there
-                # Because we need to drop the last batch in case it has not exactly batch_size
-                num_batches_per_epoch = int((data_size - 1) / batch_size)
-                for epoch in range(num_epochs):
-                    # Shuffle the data at each epoch
-                    if shuffle:
-                        shuffle_indices = np.random.permutation(np.arange(data_size))
-                        shuffled_data = data[shuffle_indices]
-                    else:
-                        shuffled_data = data
-                    for batch_num in range(num_batches_per_epoch):
-                        start_index = batch_num * batch_size
-                        end_index = min((batch_num + 1) * batch_size, data_size)
-                        yield shuffled_data[start_index:end_index]
-
             def train_step(x_batch, y_batch):
                 """A single training step"""
                 feed_dict = {
@@ -238,7 +221,7 @@ def train_rcnn():
 
             def validation_step(x_validation, y_validation, writer=None):
                 """Evaluates model on a validation set"""
-                batches_validation = batch_iter(
+                batches_validation = dh.batch_iter(
                     list(zip(x_validation, y_validation)), FLAGS.batch_size, 1)
 
                 # Predict classes by threshold or topk ('ts': threshold; 'tk': topk)
@@ -328,7 +311,7 @@ def train_rcnn():
                 return eval_loss, eval_rec_ts, eval_pre_ts, eval_F_ts, eval_rec_tk, eval_pre_tk, eval_F_tk
 
             # Generate batches
-            batches_train = batch_iter(
+            batches_train = dh.batch_iter(
                 list(zip(x_train, y_train)), FLAGS.batch_size, FLAGS.num_epochs)
 
             num_batches_per_epoch = int((len(x_train) - 1) / FLAGS.batch_size) + 1
