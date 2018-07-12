@@ -105,13 +105,11 @@ References:
 
 ### TextRCNN
 
-**Warning: Not finished yet 🤪!**
-
 ![]()
 
 References:
 
-- [Recurrent Convolutional Neural Networks for Text Classification](http://www.aaai.org/ocs/index.php/AAAI/AAAI15/paper/download/9745/9552)
+- **Personal ideas 🙃**
 
 ---
 
