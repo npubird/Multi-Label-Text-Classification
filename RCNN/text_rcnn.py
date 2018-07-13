@@ -161,7 +161,7 @@ class TextRCNN(object):
 
         # shape of `pool`: [batch_size, 1, 1, num_filters * 2 * len(filter_sizes)]
         self.pool = tf.concat(pooled_outputs, axis=3)
-        self.pool_flat = tf.reshape(self.pool, [-1, num_filters_total * 2])
+        self.pool_flat = tf.reshape(self.pool, shape=[-1, num_filters_total * 2])
 
         # Fully Connected Layer
         with tf.name_scope("fc"):
