@@ -73,7 +73,7 @@ class TextCRNN(object):
             # Use random generated the word vector by default
             # Can also be obtained through our own word vectors trained by our corpus
             if pretrained_embedding is None:
-                self.embedding = tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0,
+                self.embedding = tf.Variable(tf.random_uniform([vocab_size, embedding_size], minval=-1.0, maxval=1.0,
                                                                dtype=tf.float32), trainable=True, name="embedding")
             else:
                 if embedding_type == 0:
@@ -82,7 +82,7 @@ class TextCRNN(object):
                     self.embedding = tf.Variable(pretrained_embedding, trainable=True,
                                                  dtype=tf.float32, name="embedding")
             self.embedded_sentence = tf.nn.embedding_lookup(self.embedding, self.input_x)
-            self.embedded_sentence_expanded = tf.expand_dims(self.embedded_sentence, -1)
+            self.embedded_sentence_expanded = tf.expand_dims(self.embedded_sentence, axis=-1)
 
         # Create a convolution + maxpool layer for each filter size
         pooled_outputs = []
@@ -92,7 +92,7 @@ class TextCRNN(object):
                 # Convolution Layer
                 filter_shape = [filter_size, embedding_size, 1, num_filters]
                 W = tf.Variable(tf.truncated_normal(shape=filter_shape, stddev=0.1, dtype=tf.float32), name="W")
-                b = tf.Variable(tf.constant(0.1, shape=[num_filters], dtype=tf.float32), name="b")
+                b = tf.Variable(tf.constant(value=0.1, shape=[num_filters], dtype=tf.float32), name="b")
                 conv = tf.nn.conv2d(
                     self.embedded_sentence_expanded,
                     W,
@@ -122,12 +122,13 @@ class TextCRNN(object):
         # Combine all the pooled features
         pool_flat_outputs = []
         for i in pooled_outputs:
-            pool_flat = tf.reshape(i, [-1, 1, num_filters])
+            pool_flat = tf.reshape(i, shape=[-1, 1, num_filters])
             pool_flat = tf.nn.dropout(pool_flat, self.dropout_keep_prob)
             pool_flat_outputs.append(pool_flat)
 
-        lstm_outputs = []
         # Bi-LSTM Layer
+        lstm_outputs = []
+
         for index, pool_flat in enumerate(pool_flat_outputs):
             with tf.variable_scope("Bi-lstm-{0}".format(index)):
                 lstm_fw_cell = rnn.BasicLSTMCell(lstm_hidden_size)  # forward direction cell
@@ -151,13 +152,13 @@ class TextCRNN(object):
                 # shape of `lstm_outputs`: list -> len(filter_sizes) * [batch_size, lstm_hidden_size * 2]
                 lstm_outputs.append(lstm_out)
 
-        self.lstm_out = tf.concat(lstm_outputs, 1)  # [batch_size, lstm_hidden_size * 2 * len(filter_sizes)]
+        self.lstm_out = tf.concat(lstm_outputs, axis=1)  # [batch_size, lstm_hidden_size * 2 * len(filter_sizes)]
 
         # Fully Connected Layer
         with tf.name_scope("fc"):
             W = tf.Variable(tf.truncated_normal(shape=[lstm_hidden_size * 2 * len(filter_sizes), fc_hidden_size],
                                                 stddev=0.1, dtype=tf.float32), name="W")
-            b = tf.Variable(tf.constant(0.1, shape=[fc_hidden_size], dtype=tf.float32), name="b")
+            b = tf.Variable(tf.constant(value=0.1, shape=[fc_hidden_size], dtype=tf.float32), name="b")
             self.fc = tf.nn.xw_plus_b(self.lstm_out, W, b)
 
             # Batch Normalization Layer
@@ -177,7 +178,7 @@ class TextCRNN(object):
         with tf.name_scope("output"):
             W = tf.Variable(tf.truncated_normal(shape=[fc_hidden_size, num_classes],
                                                 stddev=0.1, dtype=tf.float32), name="W")
-            b = tf.Variable(tf.constant(0.1, shape=[num_classes], dtype=tf.float32), name="b")
+            b = tf.Variable(tf.constant(value=0.1, shape=[num_classes], dtype=tf.float32), name="b")
             self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="logits")
             self.scores = tf.sigmoid(self.logits, name="scores")
 
