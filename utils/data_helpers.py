@@ -58,7 +58,7 @@ def create_prediction_file(output_file, data_id, all_labels, all_predict_labels,
                 ('predict_labels', predict_labels),
                 ('predict_values', predict_values)
             ])
-            fout.write(json.dumps(data_record, ensure_ascii=True) + '\n')
+            fout.write(json.dumps(data_record, ensure_ascii=False) + '\n')
 
 
 def get_label_using_scores_by_threshold(scores, threshold=0.5):
@@ -260,32 +260,28 @@ def data_word2vec(input_file, num_labels, word2vec_model):
         raise IOError("✘ The research data is not a json file. "
                       "Please preprocess the research data into the json file.")
     with open(input_file) as fin:
-        testid = []
-        content_indexlist = []
-        labels = []
-        onehot_labels = []
-        labels_bind = []
-        labels_num = []
+        testid_list = []
+        content_index_list = []
+        labels_list = []
+        onehot_labels_list = []
+        labels_bind_list = []
+        labels_num_list = []
         total_line = 0
         for eachline in fin:
-            content = []
             data = json.loads(eachline)
-            test_id = data['testid']
-            features_content = data['features_content'].strip().split()
-            label_index = data['labels_index'].strip().split()
+            testid = data['testid']
+            features_content = data['features_content']
+            labels_index = data['labels_index']
+            labels_num = data['labels_num']
 
-            testid.append(test_id)
-
-            for item in features_content:
-                content.append(item)
-
-            labels.append(label_index)
-            onehot_labels.append(create_onehot_labels(label_index))
-            labels_num.append(data['labels_num'])
-            content_indexlist.append(token_to_index(content))
+            testid_list.append(testid)
+            content_index_list.append(token_to_index(features_content))
+            labels_list.append(labels_index)
+            onehot_labels_list.append(create_onehot_labels(labels_index))
+            labels_num_list.append(labels_num)
 
             if 'labels_bind' in data.keys():
-                labels_bind.append(data['labels_bind'])
+                labels_bind_list.append(data['labels_bind'])
 
             total_line += 1
 
@@ -299,28 +295,28 @@ def data_word2vec(input_file, num_labels, word2vec_model):
 
         @property
         def testid(self):
-            return testid
+            return testid_list
 
         @property
         def tokenindex(self):
-            return content_indexlist
+            return content_index_list
 
         @property
         def labels(self):
-            return labels
+            return labels_list
 
         @property
         def onehot_labels(self):
-            return onehot_labels
+            return onehot_labels_list
 
         @property
         def labels_num(self):
-            return labels_num
+            return labels_num_list
 
         @property
         def labels_bind(self):
-            if labels_bind:
-                return labels_bind
+            if labels_bind_list:
+                return labels_bind_list
             else:
                 return None
 
