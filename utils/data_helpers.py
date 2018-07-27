@@ -250,9 +250,9 @@ def data_word2vec(input_file, num_labels, word2vec_model):
             result.append(word2id)
         return result
 
-    def create_onehot_labels(label_index):
+    def create_onehot_labels(labels_index):
         label = [0] * num_labels
-        for item in label_index:
+        for item in labels_index:
             label[int(item)] = 1
         return label
 
