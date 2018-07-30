@@ -210,7 +210,7 @@ def load_vocab_size(embedding_size):
 
     Args:
         embedding_size: The embedding size
-    Return:
+    Returns:
         The vocab size of the word2vec file
     Raises:
         IOError: If word2vec model file doesn't exist
@@ -228,7 +228,7 @@ def load_vocab_size(embedding_size):
 def data_word2vec(input_file, num_labels, word2vec_model):
     """
     Create the research data tokenindex based on the word2vec model file.
-    Returns the class Data(includes the data tokenindex and data labels).
+    Return the class Data(includes the data tokenindex and data labels).
 
     Args:
         input_file: The research data
@@ -241,7 +241,7 @@ def data_word2vec(input_file, num_labels, word2vec_model):
     """
     vocab = dict([(k, v.index) for (k, v) in word2vec_model.wv.vocab.items()])
 
-    def token_to_index(content):
+    def _token_to_index(content):
         result = []
         for item in content:
             word2id = vocab.get(item)
@@ -250,7 +250,7 @@ def data_word2vec(input_file, num_labels, word2vec_model):
             result.append(word2id)
         return result
 
-    def create_onehot_labels(labels_index):
+    def _create_onehot_labels(labels_index):
         label = [0] * num_labels
         for item in labels_index:
             label[int(item)] = 1
@@ -275,9 +275,9 @@ def data_word2vec(input_file, num_labels, word2vec_model):
             labels_num = data['labels_num']
 
             testid_list.append(testid)
-            content_index_list.append(token_to_index(features_content))
+            content_index_list.append(_token_to_index(features_content))
             labels_list.append(labels_index)
-            onehot_labels_list.append(create_onehot_labels(labels_index))
+            onehot_labels_list.append(_create_onehot_labels(labels_index))
             labels_num_list.append(labels_num)
 
             if 'labels_bind' in data.keys():
@@ -285,7 +285,7 @@ def data_word2vec(input_file, num_labels, word2vec_model):
 
             total_line += 1
 
-    class Data:
+    class _Data:
         def __init__(self):
             pass
 
@@ -320,7 +320,7 @@ def data_word2vec(input_file, num_labels, word2vec_model):
             else:
                 return None
 
-    return Data()
+    return _Data()
 
 
 def data_augmented(data, drop_rate=1.0):
@@ -330,7 +330,7 @@ def data_augmented(data, drop_rate=1.0):
     Args:
         data: The Class Data()
         drop_rate: The drop rate
-    Return:
+    Returns:
         aug_data
     """
     aug_num = data.number
@@ -383,7 +383,7 @@ def data_augmented(data, drop_rate=1.0):
 
                 aug_num += 1
 
-    class AugData:
+    class _AugData:
         def __init__(self):
             pass
 
@@ -415,7 +415,7 @@ def data_augmented(data, drop_rate=1.0):
         def labels_bind(self):
             return aug_labels_bind
 
-    return AugData()
+    return _AugData()
 
 
 def load_word2vec_matrix(vocab_size, embedding_size):
@@ -425,7 +425,7 @@ def load_word2vec_matrix(vocab_size, embedding_size):
     Args:
         vocab_size: The vocab size of the word2vec model file
         embedding_size: The embedding size
-    Return:
+    Returns:
         The word2vec model matrix
     Raise:
         IOError: If word2vec model file doesn't exist
@@ -446,8 +446,8 @@ def load_word2vec_matrix(vocab_size, embedding_size):
 
 def load_data_and_labels(data_file, num_labels, embedding_size, data_aug_flag):
     """
-    Loads research data from files, splits the data into words and generates labels.
-    Returns split sentences, labels and the max sentence length of the research data.
+    Load research data from files, splits the data into words and generates labels.
+    Return split sentences, labels and the max sentence length of the research data.
 
     Args:
         data_file: The research data
@@ -478,18 +478,18 @@ def load_data_and_labels(data_file, num_labels, embedding_size, data_aug_flag):
 def pad_data(data, pad_seq_len):
     """
     Padding each sentence of research data according to the max sentence length.
-    Returns the padded data and data labels.
+    Return the padded data and data labels.
 
     Args:
         data: The research data
         pad_seq_len: The max sentence length of research data
     Returns:
-        pad_data: The padded data
+        pad_seq: The padded data
         labels: The data labels
     """
-    pad_data = pad_sequences(data.tokenindex, maxlen=pad_seq_len, value=0.)
+    pad_seq = pad_sequences(data.tokenindex, maxlen=pad_seq_len, value=0.)
     onehot_labels = data.onehot_labels
-    return pad_data, onehot_labels
+    return pad_seq, onehot_labels
 
 
 def plot_seq_len(data_file, data, percentage=0.98):
