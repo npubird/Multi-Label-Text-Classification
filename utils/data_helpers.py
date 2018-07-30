@@ -427,7 +427,7 @@ def load_word2vec_matrix(vocab_size, embedding_size):
         embedding_size: The embedding size
     Returns:
         The word2vec model matrix
-    Raise:
+    Raises:
         IOError: If word2vec model file doesn't exist
     """
     word2vec_file = '../data/word2vec_' + str(embedding_size) + '.model'
