@@ -28,7 +28,7 @@ Research data may attract copyright protection under China law. Thus, there is o
 1. Add the correct **L2 loss** calculation operation.
 2. Add **gradients clip** operation to prevent gradient explosion.
 3. Add **learning rate decay** with exponential decay.
-4. Add a new **Highway Layer**.(Which is useful based on the performance)
+4. Add a new **Highway Layer**.(Which is useful according to the model performance)
 5. Add **Batch Normalization Layer**.
 
 ### Code part
@@ -38,6 +38,7 @@ Research data may attract copyright protection under China law. Thus, there is o
 3. Add `test.py`, the **model test code**, it can show the predict value of each labels of the data in Testset when create the final prediction file.
 4. Add other useful data preprocess functions in `data_helpers.py`.
 5. Use `logging` for helping recording the whole info(including parameters display, model training info, etc.).
+6. Provide the ability to save the best n checkpoints in `checkmate.py`, whereas the `tf.train.Saver` can only save the last n checkpoints.
 
 ## Data Preprocessing
 
