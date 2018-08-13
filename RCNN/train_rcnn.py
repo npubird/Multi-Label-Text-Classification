@@ -330,8 +330,7 @@ def train_rcnn():
                     for top_num in range(FLAGS.top_num):
                         logger.info("Top{0}: Recall {1:g}, Precision {2:g}, F {3:g}"
                                     .format(top_num+1, eval_rec_tk[top_num], eval_pre_tk[top_num], eval_F_tk[top_num]))
-                    path = best_saver.handle(eval_F_ts, sess, current_step)
-                    logger.info("✔︎ Saved best model checkpoint to {0}\n".format(path))
+                    best_saver.handle(eval_F_ts, sess, current_step)
                 if current_step % FLAGS.checkpoint_every == 0:
                     checkpoint_prefix = os.path.join(checkpoint_dir, "model")
                     path = saver.save(sess, checkpoint_prefix, global_step=current_step)

@@ -81,7 +81,6 @@ class BestCheckpointSaver(object):
             self._save_best_checkpoints_file(best_checkpoints)
 
             self._saver.save(sess, self._save_path, global_step)
-        return self._save_path + '-' + str(global_step)
 
     def _save_best_checkpoints_file(self, updated_best_checkpoints):
         with open(self.best_checkpoints_file, 'w') as f:
