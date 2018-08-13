@@ -7,25 +7,26 @@ import time
 import logging
 import tensorflow as tf
 
-from utils import data_helpers as dh
-from text_rnn import TextRNN
 from tensorboard.plugins import projector
+from text_rnn import TextRNN
+from utils import checkmate as cm
+from utils import data_helpers as dh
 
 # Parameters
 # ==================================================
 
-TRAIN_OR_RESTORE = input("☛ Train or Restore?(T/R) \n")
+TRAIN_OR_RESTORE = input("☛ Train or Restore?(T/R): ")
 
 while not (TRAIN_OR_RESTORE.isalpha() and TRAIN_OR_RESTORE.upper() in ['T', 'R']):
-    TRAIN_OR_RESTORE = input('✘ The format of your input is illegal, please re-input: ')
-logging.info('✔︎ The format of your input is legal, now loading to next step...')
+    TRAIN_OR_RESTORE = input("✘ The format of your input is illegal, please re-input: ")
+logging.info("✔︎ The format of your input is legal, now loading to next step...")
 
 TRAIN_OR_RESTORE = TRAIN_OR_RESTORE.upper()
 
 if TRAIN_OR_RESTORE == 'T':
-    logger = dh.logger_fn('tflog', 'logs/training-{0}.log'.format(time.asctime()))
+    logger = dh.logger_fn("tflog", "logs/training-{0}.log".format(time.asctime()))
 if TRAIN_OR_RESTORE == 'R':
-    logger = dh.logger_fn('tflog', 'logs/restore-{0}.log'.format(time.asctime()))
+    logger = dh.logger_fn("tflog", "logs/restore-{0}.log".format(time.asctime()))
 
 TRAININGSET_DIR = '../data/Train.json'
 VALIDATIONSET_DIR = '../data/Validation.json'
@@ -59,7 +60,7 @@ tf.flags.DEFINE_float("norm_ratio", 2, "The ratio of the sum of gradients norms 
 tf.flags.DEFINE_integer("decay_steps", 5000, "how many steps before decay learning rate. (default: 500)")
 tf.flags.DEFINE_float("decay_rate", 0.95, "Rate of decay for learning rate. (default: 0.95)")
 tf.flags.DEFINE_integer("checkpoint_every", 1000, "Save model after this many steps (default: 1000)")
-tf.flags.DEFINE_integer("num_checkpoints", 50, "Number of checkpoints to store (default: 50)")
+tf.flags.DEFINE_integer("num_checkpoints", 10, "Number of checkpoints to store (default: 50)")
 
 # Misc Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
@@ -77,21 +78,22 @@ def train_rnn():
     """Training RNN model."""
 
     # Load sentences, labels, and training parameters
-    logger.info('✔︎ Loading data...')
+    logger.info("✔︎ Loading data...")
 
-    logger.info('✔︎ Training data processing...')
-    train_data = dh.load_data_and_labels(FLAGS.training_data_file, FLAGS.num_classes, FLAGS.embedding_dim)
+    logger.info("✔︎ Training data processing...")
+    train_data = dh.load_data_and_labels(FLAGS.training_data_file, FLAGS.num_classes,
+                                         FLAGS.embedding_dim, data_aug_flag=False)
 
-    logger.info('✔︎ Validation data processing...')
+    logger.info("✔︎ Validation data processing...")
     validation_data = dh.load_data_and_labels(FLAGS.validation_data_file, FLAGS.num_classes,
                                               FLAGS.embedding_dim, data_aug_flag=False)
 
-    logger.info('Recommended padding Sequence length is: {0}'.format(FLAGS.pad_seq_len))
+    logger.info("Recommended padding Sequence length is: {0}".format(FLAGS.pad_seq_len))
 
-    logger.info('✔︎ Training data padding...')
+    logger.info("✔︎ Training data padding...")
     x_train, y_train = dh.pad_data(train_data, FLAGS.pad_seq_len)
 
-    logger.info('✔︎ Validation data padding...')
+    logger.info("✔︎ Validation data padding...")
     x_validation, y_validation = dh.pad_data(validation_data, FLAGS.pad_seq_len)
 
     # Build vocabulary
@@ -143,17 +145,17 @@ def train_rnn():
                               "it should be like(1490175368): ")  # The model you want to restore
 
                 while not (MODEL.isdigit() and len(MODEL) == 10):
-                    MODEL = input('✘ The format of your input is illegal, please re-input: ')
-                logger.info('✔︎ The format of your input is legal, now loading to next step...')
-
-                checkpoint_dir = 'runs/' + MODEL + '/checkpoints/'
-
+                    MODEL = input("✘ The format of your input is illegal, please re-input: ")
+                logger.info("✔︎ The format of your input is legal, now loading to next step...")
                 out_dir = os.path.abspath(os.path.join(os.path.curdir, "runs", MODEL))
                 logger.info("✔︎ Writing to {0}\n".format(out_dir))
             else:
                 timestamp = str(int(time.time()))
                 out_dir = os.path.abspath(os.path.join(os.path.curdir, "runs", timestamp))
                 logger.info("✔︎ Writing to {0}\n".format(out_dir))
+
+            checkpoint_dir = os.path.abspath(os.path.join(out_dir, "checkpoints"))
+            best_checkpoint_dir = os.path.abspath(os.path.join(out_dir, "bestcheckpoints"))
 
             # Summaries for loss
             loss_summary = tf.summary.scalar("loss", rnn.loss)
@@ -169,10 +171,11 @@ def train_rnn():
             validation_summary_writer = tf.summary.FileWriter(validation_summary_dir, sess.graph)
 
             saver = tf.train.Saver(tf.global_variables(), max_to_keep=FLAGS.num_checkpoints)
+            best_saver = cm.BestCheckpointSaver(save_dir=best_checkpoint_dir, num_to_keep=3, maximize=True)
 
             if FLAGS.train_or_restore == 'R':
                 # Load rnn model
-                logger.info("✔ Loading model...")
+                logger.info("✔︎ Loading model...")
                 checkpoint_file = tf.train.latest_checkpoint(checkpoint_dir)
                 logger.info(checkpoint_file)
 
@@ -180,7 +183,6 @@ def train_rnn():
                 saver = tf.train.import_meta_graph("{0}.meta".format(checkpoint_file))
                 saver.restore(sess, checkpoint_file)
             else:
-                checkpoint_dir = os.path.abspath(os.path.join(out_dir, "checkpoints"))
                 if not os.path.exists(checkpoint_dir):
                     os.makedirs(checkpoint_dir)
                 sess.run(tf.global_variables_initializer())
@@ -189,14 +191,14 @@ def train_rnn():
                 # Embedding visualization config
                 config = projector.ProjectorConfig()
                 embedding_conf = config.embeddings.add()
-                embedding_conf.tensor_name = 'embedding'
+                embedding_conf.tensor_name = "embedding"
                 embedding_conf.metadata_path = FLAGS.metadata_file
 
                 projector.visualize_embeddings(train_summary_writer, config)
                 projector.visualize_embeddings(validation_summary_writer, config)
 
                 # Save the embedding visualization
-                saver.save(sess, os.path.join(out_dir, 'embedding', 'embedding.ckpt'))
+                saver.save(sess, os.path.join(out_dir, "embedding", "embedding.ckpt"))
 
             current_step = sess.run(rnn.global_step)
 
@@ -280,15 +282,6 @@ def train_rnn():
                     eval_loss = eval_loss + cur_loss
                     eval_counter = eval_counter + 1
 
-                    logger.info("✔︎ validation batch {0}: loss {1:g}".format(eval_counter, cur_loss))
-                    logger.info("︎☛ Predict by threshold: recall {0:g}, precision {1:g}, F {2:g}"
-                                .format(cur_rec_ts, cur_pre_ts, cur_F_ts))
-
-                    logger.info("︎☛ Predict by topK:")
-                    for top_num in range(FLAGS.top_num):
-                        logger.info("Top{0}: recall {1:g}, precision {2:g}, F {3:g}"
-                                    .format(top_num + 1, cur_rec_tk[top_num], cur_pre_tk[top_num], cur_F_tk[top_num]))
-
                     if writer:
                         writer.add_summary(summaries, step)
 
@@ -324,14 +317,16 @@ def train_rnn():
                     logger.info("All Validation set: Loss {0:g}".format(eval_loss))
 
                     # Predict by threshold
-                    logger.info("︎☛ Predict by threshold: Recall {0:g}, Precision {1:g}, F {2:g}"
+                    logger.info("☛ Predict by threshold: Recall {0:g}, Precision {1:g}, F {2:g}"
                                 .format(eval_rec_ts, eval_pre_ts, eval_F_ts))
 
                     # Predict by topK
-                    logger.info("︎☛ Predict by topK:")
+                    logger.info("☛ Predict by topK:")
                     for top_num in range(FLAGS.top_num):
                         logger.info("Top{0}: Recall {1:g}, Precision {2:g}, F {3:g}"
                                     .format(top_num+1, eval_rec_tk[top_num], eval_pre_tk[top_num], eval_F_tk[top_num]))
+                    path = best_saver.handle(eval_F_ts, sess, current_step)
+                    logger.info("✔︎ Saved best model checkpoint to {0}\n".format(path))
                 if current_step % FLAGS.checkpoint_every == 0:
                     checkpoint_prefix = os.path.join(checkpoint_dir, "model")
                     path = saver.save(sess, checkpoint_prefix, global_step=current_step)
