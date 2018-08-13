@@ -6,8 +6,8 @@ import sys
 import time
 import tensorflow as tf
 
-from utils import data_helpers as dh
 from utils import checkmate as cm
+from utils import data_helpers as dh
 
 # Parameters
 # ==================================================

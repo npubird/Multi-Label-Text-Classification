@@ -7,10 +7,10 @@ import time
 import logging
 import tensorflow as tf
 
-from utils import data_helpers as dh
-from utils import checkmate as cm
-from text_cnn import TextCNN
 from tensorboard.plugins import projector
+from text_cnn import TextCNN
+from utils import checkmate as cm
+from utils import data_helpers as dh
 
 # Parameters
 # ==================================================
