@@ -119,7 +119,7 @@ def train_rcnn():
                 fc_hidden_size=FLAGS.fc_hidden_size,
                 embedding_size=FLAGS.embedding_dim,
                 embedding_type=FLAGS.embedding_type,
-                filter_sizes=list(map(int, FLAGS.filter_sizes.split(","))),
+                filter_sizes=list(map(int, FLAGS.filter_sizes.split(','))),
                 num_filters=FLAGS.num_filters,
                 l2_reg_lambda=FLAGS.l2_reg_lambda,
                 pretrained_embedding=pretrained_word2vec_matrix)
