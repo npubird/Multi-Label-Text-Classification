@@ -1,6 +1,6 @@
 # Deep Learning for Multi-Label Text Classification
 
-This project is my research group project, and it is also a study of TensorFlow, Deep Learning(Fasttext, CNN, LSTM, RCNN, etc.).
+This repository is my research project, and it is also a study of TensorFlow, Deep Learning(Fasttext, CNN, LSTM, RCNN, etc.).
 
 The main objective of the project is to solve the multi-label text classification problem based on Convolutional Neural Networks. Thus, the format of the data label is like [0, 1, 0, ..., 1, 1] according to the characteristics of such problem.
 
@@ -10,12 +10,6 @@ The main objective of the project is to solve the multi-label text classificatio
 - Tensorflow 1.8 +
 - Numpy
 - Gensim
-
-## Data
-
-Research data may attract copyright protection under China law. Thus, there is only code.
-
-实验数据属于实验室与某公司的合作项目，涉及商业机密，在此不予提供，还望谅解。
 
 ## Innovation
 
@@ -32,7 +26,6 @@ Research data may attract copyright protection under China law. Thus, there is o
 5. Add **Batch Normalization Layer**.
 
 ### Code part
-
 1. Can choose to **train** the model directly or **restore** the model from checkpoint in `train.py`.
 2. Can predict the labels via **threshold** and **topK** in `train.py` and `test.py`.
 3. Add `test.py`, the **model test code**, it can show the predict value of each labels of the data in Testset when create the final prediction file.
@@ -40,16 +33,25 @@ Research data may attract copyright protection under China law. Thus, there is o
 5. Use `logging` for helping recording the whole info(including parameters display, model training info, etc.).
 6. Provide the ability to save the best n checkpoints in `checkmate.py`, whereas the `tf.train.Saver` can only save the last n checkpoints.
 
-## Data Preprocessing
+## Data
 
-Depends on what your data and task are.
+See data format in `data` folder which including the data sample files.
 
 ### Text Segment
 
 You can use `jieba` package if you are going to deal with the chinese text data.
 
+### Data Format
+
+This repository can be used in other datasets(text classification) by two ways:
+1. Modify your datasets into the same format of the sample.
+2. Modify the data preprocess code in `data_helpers.py`.
+
+Anyway, it should depends on what your data and task are.
+
 ### Pre-trained Word Vectors
 
+You can pre-training your word vectors(based on your corpus) in many ways:
 - Use `gensim` package to pre-train data.
 - Use `glove` tools to pre-train data.
 - Even can use a **fasttext** network to pre-train data.
@@ -58,8 +60,6 @@ You can use `jieba` package if you are going to deal with the chinese text data.
 
 ### FastText
 
-![]()
-
 References:
 
 - [Bag of Tricks for Efficient Text Classification](https://arxiv.org/pdf/1607.01759.pdf)
@@ -67,8 +67,6 @@ References:
 ---
 
 ### TextANN
-
-![]()
 
 References:
 
@@ -96,17 +94,13 @@ References:
 1. Add BN-LSTM cell unit.
 2. Add attention.
 
-![]()
-
 References:
 
 - [Recurrent Neural Network for Text Classification with Multi-Task Learning](http://www.aaai.org/ocs/index.php/AAAI/AAAI15/paper/download/9745/9552)
 
 ---
 
-### TextRCNN
-
-![]()
+### TextCRNN
 
 References:
 
@@ -114,9 +108,7 @@ References:
 
 ---
 
-### TextCRNN
-
-![]()
+### TextRCNN
 
 References:
 
@@ -125,8 +117,6 @@ References:
 ---
 
 ### TextHAN
-
-![]()
 
 References:
 
@@ -142,9 +132,8 @@ References:
 1. Add attention penalization loss.
 2. Add visualization.
 
-![]()
-
 References:
+
 - [A STRUCTURED SELF-ATTENTIVE SENTENCE EMBEDDING](https://arxiv.org/pdf/1703.03130.pdf)
 
 ---
