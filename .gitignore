@@ -102,6 +102,10 @@ target/
 *.json
 *.jpg
 *.png
+!/data
+!/data/train_sample.json
+!/data/validation_sample.json
+!/data/test_sample.json
 
 # Model File
 *.model
