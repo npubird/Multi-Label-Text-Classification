@@ -60,6 +60,8 @@ You can pre-training your word vectors(based on your corpus) in many ways:
 
 ### FastText
 
+![](https://farm2.staticflickr.com/1917/45609842012_30f370a0ee_o.png)
+
 References:
 
 - [Bag of Tricks for Efficient Text Classification](https://arxiv.org/pdf/1607.01759.pdf)
@@ -68,14 +70,17 @@ References:
 
 ### TextANN
 
+![](https://farm2.staticflickr.com/1965/44745949305_50f831a579_o.png)
+
 References:
 
 - **Personal ideas 🙃**
 
 ---
 
-
 ### TextCNN
+
+![](https://farm2.staticflickr.com/1927/44935475604_1d6b8f71a3_o.png)
 
 References:
 
@@ -87,6 +92,8 @@ References:
 ### TextRNN
 
 **Warning: Model can use but not finished yet 🤪!**
+
+![](https://farm2.staticflickr.com/1925/30719666177_6665038ea2_o.png)
 
 #### TODO
 1. Add BN-LSTM cell unit.
@@ -100,6 +107,8 @@ References:
 
 ### TextCRNN
 
+![](https://farm2.staticflickr.com/1915/43842346360_e4660c5921_o.png)
+
 References:
 
 - **Personal ideas 🙃**
@@ -107,6 +116,8 @@ References:
 ---
 
 ### TextRCNN
+
+![](https://farm2.staticflickr.com/1950/31788031648_b5cba7bbf0_o.png)
 
 References:
 
