@@ -102,6 +102,7 @@ target/
 *.json
 *.jpg
 *.png
+*.pickle
 !/data
 !/data/train_sample.json
 !/data/validation_sample.json
