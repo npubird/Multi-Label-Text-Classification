@@ -2,7 +2,7 @@
 
 This repository is my research project, and it is also a study of TensorFlow, Deep Learning(Fasttext, CNN, LSTM, RCNN, etc.).
 
-The main objective of the project is to solve the multi-label text classification problem based on Convolutional Neural Networks. Thus, the format of the data label is like [0, 1, 0, ..., 1, 1] according to the characteristics of such problem.
+The main objective of the project is to solve the multi-label text classification problem based on Deep Neural Networks. Thus, the format of the data label is like [0, 1, 0, ..., 1, 1] according to the characteristics of such problem.
 
 ## Requirements
 
@@ -22,16 +22,17 @@ The main objective of the project is to solve the multi-label text classificatio
 1. Add the correct **L2 loss** calculation operation.
 2. Add **gradients clip** operation to prevent gradient explosion.
 3. Add **learning rate decay** with exponential decay.
-4. Add a new **Highway Layer**.(Which is useful according to the model performance)
+4. Add a new **Highway Layer** (Which is useful according to the model performance).
 5. Add **Batch Normalization Layer**.
 
 ### Code part
 1. Can choose to **train** the model directly or **restore** the model from checkpoint in `train.py`.
 2. Can predict the labels via **threshold** and **topK** in `train.py` and `test.py`.
-3. Add `test.py`, the **model test code**, it can show the predict value of each labels of the data in Testset when create the final prediction file.
-4. Add other useful data preprocess functions in `data_helpers.py`.
-5. Use `logging` for helping recording the whole info(including parameters display, model training info, etc.).
-6. Provide the ability to save the best n checkpoints in `checkmate.py`, whereas the `tf.train.Saver` can only save the last n checkpoints.
+3. Can calculate the evaluation metrics --- $AUC$ & $AU(\overline{PRC})$.
+4. Add `test.py`, the **model test code**, it can show the predict value of each labels of the data in Testset when creating the final prediction file.
+5. Add other useful data preprocess functions in `data_helpers.py`.
+6. Use `logging` for helping recording the whole info (including **parameters display**, **model training info**, etc.).
+7. Provide the ability to save the best n checkpoints in `checkmate.py`, whereas the `tf.train.Saver` can only save the last n checkpoints.
 
 ## Data
 
