@@ -2,6 +2,7 @@
 __author__ = 'Randolph'
 
 import os
+import heapq
 import multiprocessing
 import gensim
 import logging
@@ -30,18 +31,18 @@ def logger_fn(name, input_file, level=logging.INFO):
     return tf_logger
 
 
-def create_prediction_file(output_file, data_id, all_labels, all_predict_labels, all_predict_values):
+def create_prediction_file(output_file, data_id, all_labels, all_predict_labels, all_predict_scores):
     """
     Create the prediction file.
 
     Args:
-        output_file: The all classes predicted scores provided by network
+        output_file: The all classes predicted results provided by network
         data_id: The data record id info provided by class Data
         all_labels: The all origin labels
         all_predict_labels: The all predict labels by threshold
-        all_predict_values: The all predict values by threshold
+        all_predict_scores: The all predict scores by threshold
     Raises:
-        IOError: If the prediction file is not a .json file
+        IOError: If the prediction file is not a <.json> file
     """
     if not output_file.endswith('.json'):
         raise IOError("✘ The prediction file is not a json file."
@@ -50,52 +51,102 @@ def create_prediction_file(output_file, data_id, all_labels, all_predict_labels,
         data_size = len(all_predict_labels)
         for i in range(data_size):
             predict_labels = [int(i) for i in all_predict_labels[i]]
-            predict_values = [round(i, 4) for i in all_predict_values[i]]
+            predict_scores = [round(i, 4) for i in all_predict_scores[i]]
             labels = [int(i) for i in all_labels[i]]
             data_record = OrderedDict([
-                ('testid', data_id[i]),
+                ('id', data_id[i]),
                 ('labels', labels),
                 ('predict_labels', predict_labels),
-                ('predict_values', predict_values)
+                ('predict_scores', predict_scores)
             ])
             fout.write(json.dumps(data_record, ensure_ascii=False) + '\n')
 
 
-def get_label_using_scores_by_threshold(scores, threshold=0.5):
+def get_onehot_label_threshold(scores, threshold=0.5):
+    """
+    Get the predicted onehot labels based on the threshold.
+    If there is no predict score greater than threshold, then choose the label which has the max predict score.
+
+    Args:
+        scores: The all classes predicted scores provided by network
+        threshold: The threshold (default: 0.5)
+    Returns:
+        predicted_onehot_labels: The predicted labels (onehot)
+    """
+    predicted_onehot_labels = []
+    scores = np.ndarray.tolist(scores)
+    for score in scores:
+        count = 0
+        onehot_labels_list = [0] * len(score)
+        for index, predict_score in enumerate(score):
+            if predict_score >= threshold:
+                onehot_labels_list[index] = 1
+                count += 1
+        if count == 0:
+            max_score_index = score.index(max(score))
+            onehot_labels_list[max_score_index] = 1
+        predicted_onehot_labels.append(onehot_labels_list)
+    return predicted_onehot_labels
+
+
+def get_onehot_label_topk(scores, top_num=1):
+    """
+    Get the predicted onehot labels based on the topK number.
+
+    Args:
+        scores: The all classes predicted scores provided by network
+        top_num: The max topK number (default: 5)
+    Returns:
+        predicted_onehot_labels: The predicted labels (onehot)
+    """
+    predicted_onehot_labels = []
+    scores = np.ndarray.tolist(scores)
+    for score in scores:
+        onehot_labels_list = [0] * len(score)
+        max_num_index_list = list(map(score.index, heapq.nlargest(top_num, score)))
+        for i in max_num_index_list:
+            onehot_labels_list[i] = 1
+        predicted_onehot_labels.append(onehot_labels_list)
+    return predicted_onehot_labels
+
+
+def get_label_threshold(scores, threshold=0.5):
     """
     Get the predicted labels based on the threshold.
-    If there is no predict value greater than threshold, then choose the label which has the max predict value.
+    If there is no predict score greater than threshold, then choose the label which has the max predict score.
+    Note: Only Used in `test_model.py`
 
     Args:
         scores: The all classes predicted scores provided by network
         threshold: The threshold (default: 0.5)
     Returns:
         predicted_labels: The predicted labels
-        predicted_values: The predicted values
+        predicted_scores: The predicted scores
     """
     predicted_labels = []
-    predicted_values = []
+    predicted_scores = []
     scores = np.ndarray.tolist(scores)
     for score in scores:
         count = 0
         index_list = []
-        value_list = []
-        for index, predict_value in enumerate(score):
-            if predict_value > threshold:
+        score_list = []
+        for index, predict_score in enumerate(score):
+            if predict_score >= threshold:
                 index_list.append(index)
-                value_list.append(predict_value)
+                score_list.append(predict_score)
                 count += 1
         if count == 0:
             index_list.append(score.index(max(score)))
-            value_list.append(max(score))
+            score_list.append(max(score))
         predicted_labels.append(index_list)
-        predicted_values.append(value_list)
-    return predicted_labels, predicted_values
+        predicted_scores.append(score_list)
+    return predicted_labels, predicted_scores
 
 
-def get_label_using_scores_by_topk(scores, top_num=1):
+def get_label_topk(scores, top_num=1):
     """
     Get the predicted labels based on the topK number.
+    Note: Only Used in `test_model.py`
 
     Args:
         scores: The all classes predicted scores provided by network
@@ -104,58 +155,17 @@ def get_label_using_scores_by_topk(scores, top_num=1):
         The predicted labels
     """
     predicted_labels = []
-    predicted_values = []
+    predicted_scores = []
     scores = np.ndarray.tolist(scores)
     for score in scores:
-        value_list = []
+        score_list = []
         index_list = np.argsort(score)[-top_num:]
         index_list = index_list[::-1]
         for index in index_list:
-            value_list.append(score[index])
+            score_list.append(score[index])
         predicted_labels.append(np.ndarray.tolist(index_list))
-        predicted_values.append(value_list)
-    return predicted_labels, predicted_values
-
-
-def cal_metric(predicted_labels, labels):
-    """
-    Calculate the metric(recall, precision).
-
-    Args:
-        predicted_labels: The predicted_labels
-        labels: The true labels
-    Returns:
-        The value of metric
-    """
-    label_no_zero = []
-    for index, label in enumerate(labels):
-        if int(label) == 1:
-            label_no_zero.append(index)
-    count = 0
-    for predicted_label in predicted_labels:
-        if int(predicted_label) in label_no_zero:
-            count += 1
-    recall = count / len(label_no_zero)
-    precision = count / len(predicted_labels)
-    return recall, precision
-
-
-def cal_F(recall, precision):
-    """
-    Calculate the metric F value.
-
-    Args:
-        recall: The recall value
-        precision: The precision value
-    Returns:
-        The F value
-    """
-    F = 0.0
-    if (recall + precision) == 0:
-        F = 0.0
-    else:
-        F = (2 * recall * precision) / (recall + precision)
-    return F
+        predicted_scores.append(score_list)
+    return predicted_labels, predicted_scores
 
 
 def create_metadata_file(embedding_size, output_file=METADATA_DIR):
@@ -264,9 +274,9 @@ def data_word2vec(input_file, num_labels, word2vec_model):
         content_index_list = []
         labels_list = []
         onehot_labels_list = []
-        labels_bind_list = []
         labels_num_list = []
         total_line = 0
+
         for eachline in fin:
             data = json.loads(eachline)
             testid = data['testid']
@@ -279,10 +289,6 @@ def data_word2vec(input_file, num_labels, word2vec_model):
             labels_list.append(labels_index)
             onehot_labels_list.append(_create_onehot_labels(labels_index))
             labels_num_list.append(labels_num)
-
-            if 'labels_bind' in data.keys():
-                labels_bind_list.append(data['labels_bind'])
-
             total_line += 1
 
     class _Data:
@@ -313,13 +319,6 @@ def data_word2vec(input_file, num_labels, word2vec_model):
         def labels_num(self):
             return labels_num_list
 
-        @property
-        def labels_bind(self):
-            if labels_bind_list:
-                return labels_bind_list
-            else:
-                return None
-
     return _Data()
 
 
@@ -340,11 +339,6 @@ def data_augmented(data, drop_rate=1.0):
     aug_onehot_labels = data.onehot_labels
     aug_labels_num = data.labels_num
 
-    if data.labels_bind:
-        aug_labels_bind = data.labels_bind
-    else:
-        aug_labels_bind = None
-
     for i in range(len(data.tokenindex)):
         data_record = data.tokenindex[i]
         if len(data_record) == 1:  # 句子长度为 1，则不进行增广
@@ -356,12 +350,6 @@ def data_augmented(data, drop_rate=1.0):
             aug_labels.append(data.labels[i])
             aug_onehot_labels.append(data.onehot_labels[i])
             aug_labels_num.append(data.labels_num[i])
-
-            if data.labels_bind:
-                aug_labels_bind.append(data.labels_bind[i])
-            else:
-                aug_labels_bind = None
-
             aug_num += 1
         else:
             data_record = np.array(data_record)
@@ -375,12 +363,6 @@ def data_augmented(data, drop_rate=1.0):
                 aug_labels.append(data.labels[i])
                 aug_onehot_labels.append(data.onehot_labels[i])
                 aug_labels_num.append(data.labels_num[i])
-
-                if data.labels_bind:
-                    aug_labels_bind.append(data.labels_bind[i])
-                else:
-                    aug_labels_bind = None
-
                 aug_num += 1
 
     class _AugData:
@@ -410,10 +392,6 @@ def data_augmented(data, drop_rate=1.0):
         @property
         def labels_num(self):
             return aug_labels_num
-
-        @property
-        def labels_bind(self):
-            return aug_labels_bind
 
     return _AugData()
 

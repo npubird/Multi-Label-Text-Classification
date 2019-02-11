@@ -5,12 +5,14 @@ import os
 import sys
 import time
 import logging
+import numpy as np
 import tensorflow as tf
 
 from tensorboard.plugins import projector
 from text_ann import TextANN
 from utils import checkmate as cm
 from utils import data_helpers as dh
+from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score, average_precision_score
 
 # Parameters
 # ==================================================
@@ -84,8 +86,8 @@ def train_ann():
                                          FLAGS.embedding_dim, data_aug_flag=False)
 
     logger.info("✔︎ Validation data processing...")
-    validation_data = dh.load_data_and_labels(FLAGS.validation_data_file, FLAGS.num_classes,
-                                              FLAGS.embedding_dim, data_aug_flag=False)
+    val_data = dh.load_data_and_labels(FLAGS.validation_data_file, FLAGS.num_classes,
+                                       FLAGS.embedding_dim, data_aug_flag=False)
 
     logger.info("Recommended padding Sequence length is: {0}".format(FLAGS.pad_seq_len))
 
@@ -93,7 +95,7 @@ def train_ann():
     x_train, y_train = dh.pad_data(train_data, FLAGS.pad_seq_len)
 
     logger.info("✔︎ Validation data padding...")
-    x_validation, y_validation = dh.pad_data(validation_data, FLAGS.pad_seq_len)
+    x_val, y_val = dh.pad_data(val_data, FLAGS.pad_seq_len)
 
     # Build vocabulary
     VOCAB_SIZE = dh.load_vocab_size(FLAGS.embedding_dim)
@@ -213,69 +215,52 @@ def train_ann():
                 logger.info("step {0}: loss {1:g}".format(step, loss))
                 train_summary_writer.add_summary(summaries, step)
 
-            def validation_step(x_validation, y_validation, writer=None):
+            def validation_step(x_val, y_val, writer=None):
                 """Evaluates model on a validation set"""
-                batches_validation = dh.batch_iter(
-                    list(zip(x_validation, y_validation)), FLAGS.batch_size, 1)
+                batches_validation = dh.batch_iter(list(zip(x_val, y_val)), FLAGS.batch_size, 1)
 
                 # Predict classes by threshold or topk ('ts': threshold; 'tk': topk)
-                eval_counter, eval_loss, eval_rec_ts, eval_pre_ts, eval_F_ts = 0, 0.0, 0.0, 0.0, 0.0
-                eval_rec_tk = [0.0] * FLAGS.top_num
+                eval_counter, eval_loss = 0, 0.0
+
                 eval_pre_tk = [0.0] * FLAGS.top_num
+                eval_rec_tk = [0.0] * FLAGS.top_num
                 eval_F_tk = [0.0] * FLAGS.top_num
 
+                true_onehot_labels = []
+                predicted_onehot_scores = []
+                predicted_onehot_labels_ts = []
+                predicted_onehot_labels_tk = [[] for _ in range(FLAGS.top_num)]
+
                 for batch_validation in batches_validation:
-                    x_batch_validation, y_batch_validation = zip(*batch_validation)
+                    x_batch_val, y_batch_val = zip(*batch_validation)
                     feed_dict = {
-                        ann.input_x: x_batch_validation,
-                        ann.input_y: y_batch_validation,
+                        ann.input_x: x_batch_val,
+                        ann.input_y: y_batch_val,
                         ann.dropout_keep_prob: 1.0,
                         ann.is_training: False
                     }
                     step, summaries, scores, cur_loss = sess.run(
                         [ann.global_step, validation_summary_op, ann.scores, ann.loss], feed_dict)
 
+                    # Prepare for calculating metrics
+                    for i in y_batch_val:
+                        true_onehot_labels.append(i)
+                    for j in scores:
+                        predicted_onehot_scores.append(j)
+
                     # Predict by threshold
-                    predicted_labels_threshold, predicted_values_threshold = \
-                        dh.get_label_using_scores_by_threshold(scores=scores, threshold=FLAGS.threshold)
+                    batch_predicted_onehot_labels_ts = \
+                        dh.get_onehot_label_threshold(scores=scores, threshold=FLAGS.threshold)
 
-                    cur_rec_ts, cur_pre_ts, cur_F_ts = 0.0, 0.0, 0.0
-
-                    for index, predicted_label_threshold in enumerate(predicted_labels_threshold):
-                        rec_inc_ts, pre_inc_ts = dh.cal_metric(predicted_label_threshold, y_batch_validation[index])
-                        cur_rec_ts, cur_pre_ts = cur_rec_ts + rec_inc_ts, cur_pre_ts + pre_inc_ts
-
-                    cur_rec_ts = cur_rec_ts / len(y_batch_validation)
-                    cur_pre_ts = cur_pre_ts / len(y_batch_validation)
-
-                    cur_F_ts = dh.cal_F(cur_rec_ts, cur_pre_ts)
-
-                    eval_rec_ts, eval_pre_ts = eval_rec_ts + cur_rec_ts, eval_pre_ts + cur_pre_ts
+                    for k in batch_predicted_onehot_labels_ts:
+                        predicted_onehot_labels_ts.append(k)
 
                     # Predict by topK
-                    topK_predicted_labels = []
                     for top_num in range(FLAGS.top_num):
-                        predicted_labels_topk, predicted_values_topk = \
-                            dh.get_label_using_scores_by_topk(scores=scores, top_num=top_num+1)
-                        topK_predicted_labels.append(predicted_labels_topk)
+                        batch_predicted_onehot_labels_tk = dh.get_onehot_label_topk(scores=scores, top_num=top_num+1)
 
-                    cur_rec_tk = [0.0] * FLAGS.top_num
-                    cur_pre_tk = [0.0] * FLAGS.top_num
-                    cur_F_tk = [0.0] * FLAGS.top_num
-
-                    for top_num, predicted_labels_topK in enumerate(topK_predicted_labels):
-                        for index, predicted_label_topK in enumerate(predicted_labels_topK):
-                            rec_inc_tk, pre_inc_tk = dh.cal_metric(predicted_label_topK, y_batch_validation[index])
-                            cur_rec_tk[top_num], cur_pre_tk[top_num] = \
-                                cur_rec_tk[top_num] + rec_inc_tk, cur_pre_tk[top_num] + pre_inc_tk
-
-                        cur_rec_tk[top_num] = cur_rec_tk[top_num] / len(y_batch_validation)
-                        cur_pre_tk[top_num] = cur_pre_tk[top_num] / len(y_batch_validation)
-
-                        cur_F_tk[top_num] = dh.cal_F(cur_rec_tk[top_num], cur_pre_tk[top_num])
-
-                        eval_rec_tk[top_num], eval_pre_tk[top_num] = \
-                            eval_rec_tk[top_num] + cur_rec_tk[top_num], eval_pre_tk[top_num] + cur_pre_tk[top_num]
+                        for i in batch_predicted_onehot_labels_tk:
+                            predicted_onehot_labels_tk[top_num].append(i)
 
                     eval_loss = eval_loss + cur_loss
                     eval_counter = eval_counter + 1
@@ -284,16 +269,35 @@ def train_ann():
                         writer.add_summary(summaries, step)
 
                 eval_loss = float(eval_loss / eval_counter)
-                eval_rec_ts = float(eval_rec_ts / eval_counter)
-                eval_pre_ts = float(eval_pre_ts / eval_counter)
-                eval_F_ts = dh.cal_F(eval_rec_ts, eval_pre_ts)
+
+                # Calculate Precision & Recall & F1 (threshold & topK)
+                eval_pre_ts = precision_score(y_true=np.array(true_onehot_labels),
+                                              y_pred=np.array(predicted_onehot_labels_ts), average='micro')
+                eval_rec_ts = recall_score(y_true=np.array(true_onehot_labels),
+                                           y_pred=np.array(predicted_onehot_labels_ts), average='micro')
+                eval_F_ts = f1_score(y_true=np.array(true_onehot_labels),
+                                     y_pred=np.array(predicted_onehot_labels_ts), average='micro')
 
                 for top_num in range(FLAGS.top_num):
-                    eval_rec_tk[top_num] = float(eval_rec_tk[top_num] / eval_counter)
-                    eval_pre_tk[top_num] = float(eval_pre_tk[top_num] / eval_counter)
-                    eval_F_tk[top_num] = dh.cal_F(eval_rec_tk[top_num], eval_pre_tk[top_num])
+                    eval_pre_tk[top_num] = precision_score(y_true=np.array(true_onehot_labels),
+                                                           y_pred=np.array(predicted_onehot_labels_tk[top_num]),
+                                                           average='micro')
+                    eval_rec_tk[top_num] = recall_score(y_true=np.array(true_onehot_labels),
+                                                        y_pred=np.array(predicted_onehot_labels_tk[top_num]),
+                                                        average='micro')
+                    eval_F_tk[top_num] = f1_score(y_true=np.array(true_onehot_labels),
+                                                  y_pred=np.array(predicted_onehot_labels_tk[top_num]),
+                                                  average='micro')
 
-                return eval_loss, eval_rec_ts, eval_pre_ts, eval_F_ts, eval_rec_tk, eval_pre_tk, eval_F_tk
+                # Calculate the average AUC
+                eval_auc = roc_auc_score(y_true=np.array(true_onehot_labels),
+                                         y_score=np.array(predicted_onehot_scores), average='micro')
+                # Calculate the average PR
+                eval_prc = average_precision_score(y_true=np.array(true_onehot_labels),
+                                                   y_score=np.array(predicted_onehot_scores), average='micro')
+
+                return eval_loss, eval_auc, eval_prc, eval_rec_ts, eval_pre_ts, eval_F_ts, \
+                       eval_rec_tk, eval_pre_tk, eval_F_tk
 
             # Generate batches
             batches_train = dh.batch_iter(
@@ -309,21 +313,23 @@ def train_ann():
 
                 if current_step % FLAGS.evaluate_every == 0:
                     logger.info("\nEvaluation:")
-                    eval_loss, eval_rec_ts, eval_pre_ts, eval_F_ts, eval_rec_tk, eval_pre_tk, eval_F_tk = \
-                        validation_step(x_validation, y_validation, writer=validation_summary_writer)
+                    eval_loss, eval_auc, eval_prc, \
+                    eval_rec_ts, eval_pre_ts, eval_F_ts, eval_rec_tk, eval_pre_tk, eval_F_tk = \
+                        validation_step(x_val, y_val, writer=validation_summary_writer)
 
-                    logger.info("All Validation set: Loss {0:g}".format(eval_loss))
+                    logger.info("All Validation set: Loss {0:g} | AUC {1:g} | AUPRC {2:g}"
+                                .format(eval_loss, eval_auc, eval_prc))
 
                     # Predict by threshold
-                    logger.info("☛ Predict by threshold: Recall {0:g}, Precision {1:g}, F {2:g}"
-                                .format(eval_rec_ts, eval_pre_ts, eval_F_ts))
+                    logger.info("☛ Predict by threshold: Precision {0:g}, Recall {1:g}, F {2:g}"
+                                .format(eval_pre_ts, eval_rec_ts, eval_F_ts))
 
                     # Predict by topK
                     logger.info("☛ Predict by topK:")
                     for top_num in range(FLAGS.top_num):
-                        logger.info("Top{0}: Recall {1:g}, Precision {2:g}, F {3:g}"
-                                    .format(top_num+1, eval_rec_tk[top_num], eval_pre_tk[top_num], eval_F_tk[top_num]))
-                    best_saver.handle(eval_F_ts, sess, current_step)
+                        logger.info("Top{0}: Precision {1:g}, Recall {2:g}, F {3:g}"
+                                    .format(top_num+1, eval_pre_tk[top_num], eval_rec_tk[top_num], eval_F_tk[top_num]))
+                    best_saver.handle(eval_prc, sess, current_step)
                 if current_step % FLAGS.checkpoint_every == 0:
                     checkpoint_prefix = os.path.join(checkpoint_dir, "model")
                     path = saver.save(sess, checkpoint_prefix, global_step=current_step)

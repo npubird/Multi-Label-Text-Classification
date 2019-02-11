@@ -4,10 +4,12 @@ __author__ = 'Randolph'
 import os
 import sys
 import time
+import numpy as np
 import tensorflow as tf
 
 from utils import checkmate as cm
 from utils import data_helpers as dh
+from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score, average_precision_score
 
 # Parameters
 # ==================================================
@@ -81,7 +83,7 @@ def test_han():
 
     while not (BEST_OR_LATEST.isalpha() and BEST_OR_LATEST.upper() in ['B', 'L']):
         BEST_OR_LATEST = input("✘ The format of your input is illegal, please re-input: ")
-    if BEST_OR_LATEST == 'B':
+    if BEST_OR_LATEST.upper() == 'B':
         logger.info("✔︎ Loading best model...")
         checkpoint_file = cm.get_best_checkpoint(FLAGS.best_checkpoint_dir, select_maximum_value=True)
     else:
@@ -112,7 +114,7 @@ def test_han():
             loss = graph.get_operation_by_name("loss/loss").outputs[0]
 
             # Split the output nodes name by '|' if you have several output nodes
-            output_node_names = "output/logits|output/scores"
+            output_node_names = "output/scores"
 
             # Save the .pb model file
             output_graph_def = tf.graph_util.convert_variables_to_constants(sess, sess.graph_def,
@@ -122,13 +124,22 @@ def test_han():
             # Generate batches for one epoch
             batches = dh.batch_iter(list(zip(x_test, y_test, y_test_labels)), FLAGS.batch_size, 1, shuffle=False)
 
-            # Collect the predictions here
-            all_labels = []
-            all_predicted_labels = []
-            all_predicted_values = []
+            test_counter, test_loss = 0, 0.0
 
-            # Calculate the metric
-            test_counter, test_loss, test_rec, test_pre, test_F = 0, 0.0, 0.0, 0.0, 0.0
+            test_pre_tk = [0.0] * FLAGS.top_num
+            test_rec_tk = [0.0] * FLAGS.top_num
+            test_F_tk = [0.0] * FLAGS.top_num
+
+            # Collect the predictions here
+            true_labels = []
+            predicted_labels = []
+            predicted_scores = []
+
+            # Collect for calculating metrics
+            true_onehot_labels = []
+            predicted_onehot_scores = []
+            predicted_onehot_labels_ts = []
+            predicted_onehot_labels_tk = [[] for _ in range(FLAGS.top_num)]
 
             for batch_test in batches:
                 x_batch_test, y_batch_test, y_batch_test_labels = zip(*batch_test)
@@ -140,48 +151,87 @@ def test_han():
                 }
                 batch_scores, cur_loss = sess.run([scores, loss], feed_dict)
 
-                # Predict by threshold
-                predicted_labels_threshold, predicted_values_threshold = \
-                    dh.get_label_using_scores_by_threshold(scores=batch_scores, threshold=FLAGS.threshold)
+                # Prepare for calculating metrics
+                for i in y_batch_test:
+                    true_onehot_labels.append(i)
+                for j in batch_scores:
+                    predicted_onehot_scores.append(j)
 
-                cur_rec, cur_pre, cur_F = 0.0, 0.0, 0.0
-
-                for index, predicted_label_threshold in enumerate(predicted_labels_threshold):
-                    rec_inc, pre_inc = dh.cal_metric(predicted_label_threshold, y_batch_test[index])
-                    cur_rec, cur_pre = cur_rec + rec_inc, cur_pre + pre_inc
-
-                cur_rec = cur_rec / len(y_batch_test)
-                cur_pre = cur_pre / len(y_batch_test)
-
-                test_rec, test_pre = test_rec + cur_rec, test_pre + cur_pre
+                # Get the predicted labels by threshold
+                batch_predicted_labels_ts, batch_predicted_scores_ts = \
+                    dh.get_label_threshold(scores=batch_scores, threshold=FLAGS.threshold)
 
                 # Add results to collection
-                for item in y_batch_test_labels:
-                    all_labels.append(item)
-                for item in predicted_labels_threshold:
-                    all_predicted_labels.append(item)
-                for item in predicted_values_threshold:
-                    all_predicted_values.append(item)
+                for i in y_batch_test_labels:
+                    true_labels.append(i)
+                for j in batch_predicted_labels_ts:
+                    predicted_labels.append(j)
+                for k in batch_predicted_scores_ts:
+                    predicted_scores.append(k)
+
+                # Get onehot predictions by threshold
+                batch_predicted_onehot_labels_ts = \
+                    dh.get_onehot_label_threshold(scores=batch_scores, threshold=FLAGS.threshold)
+                for i in batch_predicted_onehot_labels_ts:
+                    predicted_onehot_labels_ts.append(i)
+
+                # Get onehot predictions by topK
+                for top_num in range(FLAGS.top_num):
+                    batch_predicted_onehot_labels_tk = dh.get_onehot_label_topk(scores=batch_scores, top_num=top_num+1)
+
+                    for i in batch_predicted_onehot_labels_tk:
+                        predicted_onehot_labels_tk[top_num].append(i)
 
                 test_loss = test_loss + cur_loss
                 test_counter = test_counter + 1
 
-            test_loss = float(test_loss / test_counter)
-            test_rec = float(test_rec / test_counter)
-            test_pre = float(test_pre / test_counter)
-            test_F = dh.cal_F(test_rec, test_pre)
+            # Calculate Precision & Recall & F1 (threshold & topK)
+            test_pre_ts = precision_score(y_true=np.array(true_onehot_labels),
+                                          y_pred=np.array(predicted_onehot_labels_ts), average='micro')
+            test_rec_ts = recall_score(y_true=np.array(true_onehot_labels),
+                                       y_pred=np.array(predicted_onehot_labels_ts), average='micro')
+            test_F_ts = f1_score(y_true=np.array(true_onehot_labels),
+                                 y_pred=np.array(predicted_onehot_labels_ts), average='micro')
 
-            logger.info("☛ All Test Dataset: Loss {0:g}".format(test_loss))
+            for top_num in range(FLAGS.top_num):
+                test_pre_tk[top_num] = precision_score(y_true=np.array(true_onehot_labels),
+                                                       y_pred=np.array(predicted_onehot_labels_tk[top_num]),
+                                                       average='micro')
+                test_rec_tk[top_num] = recall_score(y_true=np.array(true_onehot_labels),
+                                                    y_pred=np.array(predicted_onehot_labels_tk[top_num]),
+                                                    average='micro')
+                test_F_tk[top_num] = f1_score(y_true=np.array(true_onehot_labels),
+                                              y_pred=np.array(predicted_onehot_labels_tk[top_num]),
+                                              average='micro')
+
+            # Calculate the average AUC
+            test_auc = roc_auc_score(y_true=np.array(true_onehot_labels),
+                                     y_score=np.array(predicted_onehot_scores), average='micro')
+
+            # Calculate the average PR
+            test_prc = average_precision_score(y_true=np.array(true_onehot_labels),
+                                               y_score=np.array(predicted_onehot_scores), average="micro")
+            test_loss = float(test_loss / test_counter)
+
+            logger.info("☛ All Test Dataset: Loss {0:g} | AUC {1:g} | AUPRC {2:g}"
+                        .format(test_loss, test_auc, test_prc))
 
             # Predict by threshold
-            logger.info("☛ Predict by threshold: Recall {0:g}, Precision {1:g}, F {2:g}"
-                        .format(test_rec, test_pre, test_F))
+            logger.info("☛ Predict by threshold: Precision {0:g}, Recall {1:g}, F1 {2:g}"
+                        .format(test_pre_ts, test_rec_ts, test_F_ts))
+
+            # Predict by topK
+            logger.info("☛ Predict by topK:")
+            for top_num in range(FLAGS.top_num):
+                logger.info("Top{0}: Precision {1:g}, Recall {2:g}, F {3:g}"
+                            .format(top_num + 1, test_pre_tk[top_num], test_rec_tk[top_num], test_F_tk[top_num]))
+
             # Save the prediction result
             if not os.path.exists(SAVE_DIR):
                 os.makedirs(SAVE_DIR)
             dh.create_prediction_file(output_file=SAVE_DIR + "/predictions.json", data_id=test_data.testid,
-                                      all_labels=all_labels, all_predict_labels=all_predicted_labels,
-                                      all_predict_values=all_predicted_values)
+                                      all_labels=true_labels, all_predict_labels=predicted_labels,
+                                      all_predict_scores=predicted_scores)
 
     logger.info("✔︎ Done.")
 

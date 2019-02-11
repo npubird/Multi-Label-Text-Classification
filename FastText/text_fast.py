@@ -83,7 +83,8 @@ class TextFAST(object):
 
         # Highway Layer
         with tf.name_scope("highway"):
-            self.highway = _highway_layer(self.fc_out, self.fc_out.get_shape()[1], num_layers=1, bias=0)
+            self.highway = _highway_layer(self.embedded_sentence_average,
+                                          self.embedded_sentence_average.get_shape()[1], num_layers=1, bias=0)
 
         # Add dropout
         with tf.name_scope("dropout"):
