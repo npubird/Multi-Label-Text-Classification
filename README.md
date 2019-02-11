@@ -28,7 +28,7 @@ The main objective of the project is to solve the multi-label text classificatio
 ### Code part
 1. Can choose to **train** the model directly or **restore** the model from checkpoint in `train.py`.
 2. Can predict the labels via **threshold** and **topK** in `train.py` and `test.py`.
-3. Can calculate the evaluation metrics --- $AUC$ & $AU(\overline{PRC})$.
+3. Can calculate the evaluation metrics --- **AUC** & **AUPRC**.
 4. Add `test.py`, the **model test code**, it can show the predict value of each labels of the data in Testset when creating the final prediction file.
 5. Add other useful data preprocess functions in `data_helpers.py`.
 6. Use `logging` for helping recording the whole info (including **parameters display**, **model training info**, etc.).
