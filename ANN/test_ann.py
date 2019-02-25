@@ -118,7 +118,7 @@ def test_ann():
             # Save the .pb model file
             output_graph_def = tf.graph_util.convert_variables_to_constants(sess, sess.graph_def,
                                                                             output_node_names.split("|"))
-            tf.train.write_graph(output_graph_def, "graph", "graph-cnn-{0}.pb".format(MODEL), as_text=False)
+            tf.train.write_graph(output_graph_def, "graph", "graph-ann-{0}.pb".format(MODEL), as_text=False)
 
             # Generate batches for one epoch
             batches = dh.batch_iter(list(zip(x_test, y_test, y_test_labels)), FLAGS.batch_size, 1, shuffle=False)
