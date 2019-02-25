@@ -1,6 +1,6 @@
 # Deep Learning for Multi-Label Text Classification
 
-This repository is my research project, and it is also a study of TensorFlow, Deep Learning(Fasttext, CNN, LSTM, RCNN, etc.).
+This repository is my research project, and it is also a study of TensorFlow, Deep Learning (Fasttext, CNN, LSTM, RCNN, etc.).
 
 The main objective of the project is to solve the multi-label text classification problem based on Deep Neural Networks. Thus, the format of the data label is like [0, 1, 0, ..., 1, 1] according to the characteristics of such problem.
 
@@ -14,8 +14,8 @@ The main objective of the project is to solve the multi-label text classificatio
 ## Innovation
 
 ### Data part
-1. Make the data support **Chinese** and English.(Which use `jieba` seems easy)
-2. Can use **your own pre-trained word vectors**.(Which use `gensim` seems easy)
+1. Make the data support **Chinese** and English (Which use `jieba` seems easy).
+2. Can use **your own pre-trained word vectors** (Which use `gensim` seems easy). 
 3. Add embedding visualization based on the **tensorboard**.
 
 ### Model part
@@ -44,7 +44,7 @@ You can use `jieba` package if you are going to deal with the chinese text data.
 
 ### Data Format
 
-This repository can be used in other datasets(text classification) by two ways:
+This repository can be used in other datasets (text classification) by two ways:
 1. Modify your datasets into the same format of the sample.
 2. Modify the data preprocess code in `data_helpers.py`.
 
@@ -52,7 +52,7 @@ Anyway, it should depends on what your data and task are.
 
 ### Pre-trained Word Vectors
 
-You can pre-training your word vectors(based on your corpus) in many ways:
+You can pre-training your word vectors (based on your corpus) in many ways:
 - Use `gensim` package to pre-train data.
 - Use `glove` tools to pre-train data.
 - Even can use a **fasttext** network to pre-train data.
